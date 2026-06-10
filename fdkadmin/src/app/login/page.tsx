@@ -76,18 +76,29 @@ export default function LoginPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Kto się loguje?
               </label>
-              <select
-                value={worker}
-                onChange={(e) => setWorker(e.target.value)}
-                required
-                className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              >
-                {workers.map((w) => (
-                  <option key={w.id} value={w.name}>
-                    {w.name}
-                  </option>
-                ))}
-              </select>
+              {workers.length > 0 ? (
+                <select
+                  value={worker}
+                  onChange={(e) => setWorker(e.target.value)}
+                  required
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                >
+                  {workers.map((w) => (
+                    <option key={w.id} value={w.name}>
+                      {w.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={worker}
+                  onChange={(e) => setWorker(e.target.value)}
+                  placeholder="Wpisz swoje imię..."
+                  required
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              )}
             </div>
 
             {error && (

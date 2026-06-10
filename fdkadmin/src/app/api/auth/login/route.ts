@@ -8,13 +8,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Nieprawidłowe hasło" }, { status: 401 });
   }
 
-  // Verify worker exists
-  const workerRecord = await prisma.worker.findFirst({
+  // Find or create worker
+  let workerRecord = await prisma.worker.findFirst({
     where: { name: worker, active: true },
   });
 
   if (!workerRecord) {
-    return NextResponse.json({ error: "Nieprawidłowy pracownik" }, { status: 400 });
+    // Auto-create worker on first login with valid password
+    workerRecord = await prisma.worker.upsert({
+      where: { name: worker },
+      update: { active: true },
+      create: { name: worker },
+    });
   }
 
   const response = NextResponse.json({ success: true });
