@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+}
+
+enum Channel {
+  PHONE
+  EMAIL
+  SMS
+}
+
+enum Department {
+  KADRY
+  ADMINISTRACJA
+  KONTAKT
+  HR
+  HR_ENG
+  TUTLO
+  INNY
+}
+
+enum CaseStatus {
+  NOWE
+  KONTAKT_WSTEPNY
+  W_TOKU
+  PRZEDLUZONO
+  ZAMKNIETE
+}
+
+model Case {
+  id             String     @id @default(uuid())
+  createdAt      DateTime   @default(now())
+  channel        Channel
+  taker          String
+  client         String
+  topic          String
+  dept           Department
+  owner          String?
+  deadline       DateTime
+  status         CaseStatus @default(NOWE)
+  extended       Boolean    @default(false)
+  firstContactAt DateTime?
+  closedAt       DateTime?
+  note           String?
+  alert30Sent    Boolean    @default(false)
+  alertOverSent  Boolean    @default(false)
+
+  @@index([status])
+  @@index([deadline])
+}
+
+model Setting {
+  id              String  @id @default("default")
+  teamsWebhookUrl String?
+  bccEmail        String  @default("administracja@firmadlakazdego.pl")
+}
+
+model Worker {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
