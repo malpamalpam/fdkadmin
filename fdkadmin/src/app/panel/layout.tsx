@@ -2,24 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect, createContext, useContext } from "react";
-
-interface UserData {
-  id: string;
-  login: string;
-  fullName: string;
-  dept: string | null;
-  role: "ADMIN" | "SUPERVISOR" | "EMPLOYEE";
-  gender: "K" | "M";
-  position: string | null;
-  signatureBlock: string | null;
-}
-
-const UserContext = createContext<UserData | null>(null);
-
-export function useUser() {
-  return useContext(UserContext);
-}
+import { useState, useEffect } from "react";
+import { UserContext, UserData } from "@/lib/user-context";
 
 export default function PanelLayout({
   children,
@@ -51,7 +35,6 @@ export default function PanelLayout({
     { href: "/panel/profil", label: "Mój profil" },
   ];
 
-  // Admin-only nav items
   if (user?.role === "ADMIN") {
     navItems.push({ href: "/panel/ustawienia", label: "Ustawienia" });
   }
@@ -104,7 +87,6 @@ export default function PanelLayout({
               </button>
             </div>
           </div>
-          {/* Mobile nav */}
           <nav className="sm:hidden flex border-t overflow-x-auto">
             {navItems.map((item) => (
               <Link
