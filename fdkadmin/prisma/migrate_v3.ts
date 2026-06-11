@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Department } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -20,9 +20,9 @@ async function main() {
   // 1. Create DepartmentConfig entries
   for (const [code, name] of Object.entries(DEPT_NAMES)) {
     await prisma.departmentConfig.upsert({
-      where: { code: code as keyof typeof DEPT_NAMES },
+      where: { code: code as Department },
       update: { name },
-      create: { code: code as keyof typeof DEPT_NAMES, name },
+      create: { code: code as Department, name },
     });
   }
   console.log("Created DepartmentConfig entries");
