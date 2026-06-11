@@ -1,6 +1,6 @@
 {
   "name": "fdk-admin",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -11,6 +11,7 @@
     "db:push": "prisma db push",
     "db:migrate-v2": "npx tsx --env-file=.env prisma/migrate_v2.ts",
     "db:migrate-v3": "npx tsx --env-file=.env prisma/migrate_v3.ts",
+    "db:migrate-v4": "npx tsx --env-file=.env prisma/migrate_v4.ts",
     "db:seed": "npx tsx --env-file=.env prisma/seed.ts"
   },
   "dependencies": {

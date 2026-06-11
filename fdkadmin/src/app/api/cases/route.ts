@@ -111,10 +111,11 @@ export async function POST(request: NextRequest) {
     mentions
   );
 
-  // Email: to department mailbox + owner's personal email
+  // Email: to all department mailboxes + owner's personal email
   const emailTo: string[] = [];
   const deptConfig = await prisma.departmentConfig.findUnique({ where: { code: dept } });
-  if (deptConfig?.email) emailTo.push(deptConfig.email);
+  if (deptConfig?.emails?.length) emailTo.push(...deptConfig.emails);
+  else if (deptConfig?.email) emailTo.push(deptConfig.email); // legacy fallback
   if (ownerId) {
     const ownerUser = await prisma.user.findUnique({ where: { id: ownerId } });
     if (ownerUser?.email) emailTo.push(ownerUser.email);

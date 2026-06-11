@@ -26,16 +26,21 @@ export async function PUT(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { code, email } = body;
+  const { code, emails } = body;
 
   if (!code) {
     return NextResponse.json({ error: "Kod działu jest wymagany" }, { status: 400 });
   }
 
+  // Validate email formats
+  const validEmails = (Array.isArray(emails) ? emails : [])
+    .map((e: string) => e.trim())
+    .filter((e: string) => e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+
   const dept = await prisma.departmentConfig.upsert({
     where: { code },
-    update: { email: email || null },
-    create: { code, name: code, email: email || null },
+    update: { emails: validEmails },
+    create: { code, name: code, emails: validEmails },
   });
 
   return NextResponse.json(dept);

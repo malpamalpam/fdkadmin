@@ -21,7 +21,7 @@ interface UserRecord {
   dept: string | null; role: string; gender: string; position: string | null; active: boolean;
 }
 
-interface DeptConfig { id: string; code: string; name: string; email: string | null; }
+interface DeptConfig { id: string; code: string; name: string; email: string | null; emails: string[]; }
 
 const SORTED_DEPTS = getSortedDepartments();
 const DEPARTMENTS = [{ value: "", label: "— brak —" }, ...SORTED_DEPTS];
@@ -81,8 +81,9 @@ export default function UstawieniaPage() {
     finally { setSaving(false); }
   }
 
-  async function saveDeptEmail(code: string, email: string) {
-    await fetch("/api/settings/departments", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, email }) });
+  async function saveDeptEmails(code: string, emails: string[]) {
+    await fetch("/api/settings/departments", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, emails }) });
+    setDeptConfigs(deptConfigs.map((d) => d.code === code ? { ...d, emails } : d));
   }
 
   async function addUser() {
@@ -168,15 +169,13 @@ export default function UstawieniaPage() {
       {/* Department emails */}
       <section className="bg-white rounded-lg shadow-sm border p-6 space-y-4">
         <h2 className="font-semibold text-lg">Skrzynki działowe</h2>
-        <div className="space-y-2">
+        <p className="text-xs text-gray-500">Każdy dział może mieć wiele adresów e-mail. Wpisz adres i naciśnij Enter.</p>
+        <div className="space-y-3">
           {SORTED_DEPTS.map((d) => {
             const cfg = deptConfigs.find((c) => c.code === d.value);
+            const emails = cfg?.emails?.length ? cfg.emails : (cfg?.email ? [cfg.email] : []);
             return (
-              <div key={d.value} className="flex items-center gap-3">
-                <span className="text-sm w-32">{d.label}</span>
-                <input type="email" defaultValue={cfg?.email || ""} placeholder="email@firmadlakazdego.pl"
-                  onBlur={(e) => saveDeptEmail(d.value, e.target.value)} className="flex-1 border rounded px-2 py-1 text-sm" />
-              </div>
+              <DeptEmailsEditor key={d.value} label={d.label} code={d.value} emails={emails} onSave={(e) => saveDeptEmails(d.value, e)} />
             );
           })}
         </div>
@@ -262,6 +261,46 @@ export default function UstawieniaPage() {
         <h2 className="font-semibold text-lg">Eksport danych</h2>
         <button onClick={() => window.open("/api/cases/export", "_blank")} className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-900">📥 Eksport CSV</button>
       </section>
+    </div>
+  );
+}
+
+function DeptEmailsEditor({ label, code, emails, onSave }: { label: string; code: string; emails: string[]; onSave: (emails: string[]) => void }) {
+  const [list, setList] = useState(emails);
+  const [input, setInput] = useState("");
+
+  function addEmail() {
+    const trimmed = input.trim();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return;
+    if (list.includes(trimmed)) { setInput(""); return; }
+    const updated = [...list, trimmed];
+    setList(updated);
+    setInput("");
+    onSave(updated);
+  }
+
+  function removeEmail(email: string) {
+    const updated = list.filter((e) => e !== email);
+    setList(updated);
+    onSave(updated);
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-sm font-medium">{label}</span>
+      <div className="flex flex-wrap gap-1 min-h-[32px]">
+        {list.map((email) => (
+          <span key={email} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded-full border border-blue-200">
+            {email}
+            <button onClick={() => removeEmail(email)} className="text-blue-400 hover:text-red-500 font-bold">×</button>
+          </span>
+        ))}
+        <input type="email" value={input} onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addEmail(); } }}
+          onBlur={addEmail}
+          placeholder="dodaj email..."
+          className="border rounded px-2 py-1 text-xs min-w-[180px] flex-1" />
+      </div>
     </div>
   );
 }

@@ -138,10 +138,11 @@ model CaseHistory {
 }
 
 model DepartmentConfig {
-  id    String     @id @default(uuid())
-  code  Department @unique
-  name  String
-  email String?
+  id     String     @id @default(uuid())
+  code   Department @unique
+  name   String
+  email  String?    // deprecated, kept for migration
+  emails String[]   @default([])
 
   @@index([code])
 }

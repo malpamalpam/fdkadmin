@@ -52,7 +52,7 @@ export function CaseCard({ caseData, bccEmail, settings, onRefresh }: CaseCardPr
   const [showOwnerChange, setShowOwnerChange] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [user, setUser] = useState<{ id: string; fullName: string; gender: string; position: string | null; signatureBlock: string | null } | null>(null);
+  const [user, setUser] = useState<{ id: string; fullName: string; gender: string; role: string; position: string | null; signatureBlock: string | null } | null>(null);
   const [workers, setWorkers] = useState<WorkerOption[]>([]);
 
   useEffect(() => {
@@ -251,9 +251,14 @@ export function CaseCard({ caseData, bccEmail, settings, onRefresh }: CaseCardPr
         {/* Deadline / Response time info */}
         {hasDeadline && deadlineDate && (
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-gray-500">Deadline:</span>
-            <CountdownTimer deadline={caseData.deadline!} />
-            <span className="text-gray-400">({deadlineDate.toLocaleTimeString("pl-PL", { timeZone: "Europe/Warsaw", hour: "2-digit", minute: "2-digit" })})</span>
+            <span className="text-gray-500">{isClosed ? "Wynik:" : "Deadline:"}</span>
+            <CountdownTimer deadline={caseData.deadline!} closedAt={caseData.closedAt} />
+            {isClosed && caseData.closedAt && (
+              <span className="text-gray-400">
+                (zamknięta {new Date(caseData.closedAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })})
+              </span>
+            )}
+            {!isClosed && <span className="text-gray-400">({deadlineDate.toLocaleTimeString("pl-PL", { timeZone: "Europe/Warsaw", hour: "2-digit", minute: "2-digit" })})</span>}
             {caseData.extended && <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">+1h</span>}
           </div>
         )}
@@ -349,6 +354,11 @@ export function CaseCard({ caseData, bccEmail, settings, onRefresh }: CaseCardPr
             </>
           )}
           <button onClick={loadHistory} className="px-3 py-1.5 text-sm bg-gray-100 text-gray-600 rounded hover:bg-gray-200">📜 Historia</button>
+          {user?.role === "ADMIN" && (
+            <button onClick={async () => { if (!confirm(`Czy na pewno chcesz USUNĄĆ sprawę "${caseData.client}"? Tej operacji nie można cofnąć.`)) return; setLoading("delete"); try { if (await apiCall(`/api/cases/${caseData.id}/delete`, "DELETE")) onRefresh(); } finally { setLoading(""); } }} disabled={loading === "delete"} className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50">
+              🗑 Usuń sprawę
+            </button>
+          )}
         </div>
 
         {/* Inline edit */}
