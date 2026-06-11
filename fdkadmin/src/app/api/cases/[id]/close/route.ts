@@ -43,6 +43,7 @@ export async function POST(
   const updated = await prisma.case.update({
     where: { id },
     data: {
+      previousStatus: caseRecord.status,
       status: "ZAMKNIETE",
       closedAt,
       note: note.trim(),

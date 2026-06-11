@@ -27,9 +27,11 @@ enum Department {
 }
 
 enum CaseStatus {
-  NOWE
-  OCZEKUJE_NA_DEADLINE
-  KONTAKT_WSTEPNY
+  NOWE                   // legacy, kept for DB compat
+  OCZEKUJE_NA_DEADLINE   // legacy, kept for DB compat
+  ZGLOSZONA              // v3: just reported, waiting for owner to accept
+  PRZYJETA               // v3: accepted by owner, response time chosen
+  KONTAKT_WSTEPNY        // first contact sent, deadline counting
   W_TOKU
   PRZEDLUZONO
   ZAMKNIETE
@@ -62,6 +64,8 @@ model User {
   login          String     @unique
   passwordHash   String
   fullName       String
+  email          String?
+  teamsUpn       String?
   dept           Department?
   role           Role       @default(EMPLOYEE)
   gender         Gender     @default(K)
@@ -91,11 +95,16 @@ model Case {
   ownerUser             User?       @relation("CaseOwner", fields: [ownerId], references: [id])
   salutation            Salutation  @default(PAN)
   language              Language    @default(PL)
+  responseTime          Int?        // 1, 2, or 3 (hours)
+  acceptedAt            DateTime?
+  acceptedBy            String?
   deadline              DateTime?
   deadlineSetAt         DateTime?
   deadlineSetBy         String?
-  status                CaseStatus  @default(OCZEKUJE_NA_DEADLINE)
+  status                CaseStatus  @default(ZGLOSZONA)
   extended              Boolean     @default(false)
+  previousDeadline      DateTime?   // stored before extend for undo
+  previousStatus        String?     // stored before status change for undo
   firstContactAt        DateTime?
   firstContactSentAt    DateTime?
   extensionSentAt       DateTime?
@@ -104,6 +113,9 @@ model Case {
   alert30Sent           Boolean     @default(false)
   alertOverSent         Boolean     @default(false)
   alertNoDeadlineSent   Boolean     @default(false)
+  alertNoContactSent    Boolean     @default(false)
+  emailNewSent          Boolean     @default(false)
+  email30Sent           Boolean     @default(false)
 
   history               CaseHistory[]
 
@@ -125,10 +137,22 @@ model CaseHistory {
   @@index([caseId])
 }
 
+model DepartmentConfig {
+  id    String     @id @default(uuid())
+  code  Department @unique
+  name  String
+  email String?
+
+  @@index([code])
+}
+
 model Setting {
-  id              String  @id @default("default")
-  teamsWebhookUrl String?
-  bccEmail        String  @default("administracja@firmadlakazdego.pl")
+  id                   String  @id @default("default")
+  teamsWebhookUrl      String?
+  workflowsWebhookUrl  String?
+  bccEmail             String  @default("administracja@firmadlakazdego.pl")
+  signatureTemplate    String?
+  timeFormatRelative   Boolean @default(true)
 }
 
 model Worker {

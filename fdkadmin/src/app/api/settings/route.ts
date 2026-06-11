@@ -30,18 +30,30 @@ export async function PUT(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { teamsWebhookUrl, bccEmail } = body;
+  const {
+    teamsWebhookUrl,
+    workflowsWebhookUrl,
+    bccEmail,
+    signatureTemplate,
+    timeFormatRelative,
+  } = body;
 
   const settings = await prisma.setting.upsert({
     where: { id: "default" },
     update: {
       teamsWebhookUrl: teamsWebhookUrl || null,
+      workflowsWebhookUrl: workflowsWebhookUrl || null,
       bccEmail: bccEmail || "administracja@firmadlakazdego.pl",
+      signatureTemplate: signatureTemplate || null,
+      timeFormatRelative: timeFormatRelative ?? true,
     },
     create: {
       id: "default",
       teamsWebhookUrl: teamsWebhookUrl || null,
+      workflowsWebhookUrl: workflowsWebhookUrl || null,
       bccEmail: bccEmail || "administracja@firmadlakazdego.pl",
+      signatureTemplate: signatureTemplate || null,
+      timeFormatRelative: timeFormatRelative ?? true,
     },
   });
 

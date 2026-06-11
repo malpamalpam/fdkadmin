@@ -1,25 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
-import { sendTeamsMessage } from "@/lib/teams";
-
-const DEPT_LABELS: Record<string, string> = {
-  KADRY: "Kadry",
-  ADMINISTRACJA: "Administracja",
-  KONTAKT: "Kontakt",
-  HR: "HR",
-  KSIEGOWOSC: "Księgowość",
-  B2B: "B2B",
-  OPLATY: "Opłaty",
-  TUTLO: "Tutlo",
-  INNY: "Inny",
-};
-
-const CHANNEL_LABELS: Record<string, string> = {
-  PHONE: "Telefon",
-  EMAIL: "E-mail",
-  SMS: "SMS",
-};
+import { sendTeamsAdaptiveCard } from "@/lib/teams";
+import { sendEmail, buildCaseEmailHtml } from "@/lib/email";
+import { DEPT_LABELS, CHANNEL_LABELS } from "@/lib/constants";
 
 export async function GET(request: NextRequest) {
   const session = await verifyAuth(request);
@@ -29,8 +13,10 @@ export async function GET(request: NextRequest) {
 
   const url = new URL(request.url);
   const showClosed = url.searchParams.get("closed") === "true";
+  const filterDept = url.searchParams.get("dept");
+  const filterClient = url.searchParams.get("client");
 
-  // Build where clause based on role
+  // RBAC filter
   let roleFilter = {};
   if (session.role === "EMPLOYEE") {
     const orConditions: Record<string, unknown>[] = [
@@ -43,6 +29,13 @@ export async function GET(request: NextRequest) {
     roleFilter = { OR: orConditions };
   }
 
+  // User filters
+  const userFilters: Record<string, unknown>[] = [];
+  if (filterDept) userFilters.push({ dept: filterDept });
+  if (filterClient) userFilters.push({ client: { contains: filterClient, mode: "insensitive" } });
+
+  const andConditions = userFilters.length > 0 ? { AND: userFilters } : {};
+
   if (showClosed) {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const cases = await prisma.case.findMany({
@@ -50,6 +43,7 @@ export async function GET(request: NextRequest) {
         status: "ZAMKNIETE",
         closedAt: { gte: thirtyDaysAgo },
         ...roleFilter,
+        ...andConditions,
       },
       orderBy: { closedAt: "desc" },
     });
@@ -60,9 +54,9 @@ export async function GET(request: NextRequest) {
     where: {
       status: { not: "ZAMKNIETE" },
       ...roleFilter,
+      ...andConditions,
     },
     orderBy: [
-      // Cases without deadline first (OCZEKUJE_NA_DEADLINE)
       { deadline: { sort: "asc", nulls: "first" } },
     ],
   });
@@ -83,7 +77,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Brakuje wymaganych pól" }, { status: 400 });
   }
 
-  // New flow: no deadline at creation, status = OCZEKUJE_NA_DEADLINE
   const newCase = await prisma.case.create({
     data: {
       channel,
@@ -96,15 +89,55 @@ export async function POST(request: NextRequest) {
       ownerId: ownerId || null,
       salutation: salutation || "PAN",
       language: language || "PL",
-      status: "OCZEKUJE_NA_DEADLINE",
+      status: "ZGLOSZONA",
     },
   });
 
   const ownerDisplay = owner || "nieprzypisany";
-  await sendTeamsMessage(
-    "🆕 Nowe zgłoszenie",
-    `**Beneficjent:** ${client}\n\n**W sprawie:** ${topic}\n\n**Dział:** ${DEPT_LABELS[dept] || dept} → ${ownerDisplay}\n\n**Kanał:** ${CHANNEL_LABELS[channel] || channel}\n\n**Przyjął/a:** ${session.fullName}\n\n**${ownerDisplay}: wyznacz deadline!**`
+  const deptLabel = DEPT_LABELS[dept] || dept;
+
+  // Teams notification with @mention for owner
+  const mentions: { name: string; upn: string }[] = [];
+  if (ownerId) {
+    const ownerUser = await prisma.user.findUnique({ where: { id: ownerId } });
+    if (ownerUser?.teamsUpn) {
+      mentions.push({ name: ownerUser.fullName, upn: ownerUser.teamsUpn });
+    }
+  }
+
+  await sendTeamsAdaptiveCard(
+    "🆕 Nowa sprawa",
+    `**Beneficjent:** ${client}\n\n**W sprawie:** ${topic}\n\n**Dział:** ${deptLabel} → **${ownerDisplay}**\n\n**Kanał:** ${CHANNEL_LABELS[channel] || channel}\n\n**Zgłosił/a:** ${session.fullName}\n\n**${ownerDisplay}: przyjmij zgłoszenie!**`,
+    mentions
   );
+
+  // Email: to department mailbox + owner's personal email
+  const emailTo: string[] = [];
+  const deptConfig = await prisma.departmentConfig.findUnique({ where: { code: dept } });
+  if (deptConfig?.email) emailTo.push(deptConfig.email);
+  if (ownerId) {
+    const ownerUser = await prisma.user.findUnique({ where: { id: ownerId } });
+    if (ownerUser?.email) emailTo.push(ownerUser.email);
+  }
+
+  if (emailTo.length > 0) {
+    await sendEmail({
+      to: emailTo,
+      subject: `Nowa sprawa: ${client} — ${topic}`,
+      html: buildCaseEmailHtml({
+        title: "Nowa sprawa w rejestrze",
+        client,
+        topic,
+        dept: deptLabel,
+        owner: ownerDisplay,
+        caseId: newCase.id,
+      }),
+    });
+    await prisma.case.update({
+      where: { id: newCase.id },
+      data: { emailNewSent: true },
+    });
+  }
 
   return NextResponse.json(newCase, { status: 201 });
 }

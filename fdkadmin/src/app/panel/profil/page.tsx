@@ -6,6 +6,8 @@ interface UserProfile {
   id: string;
   login: string;
   fullName: string;
+  email: string | null;
+  teamsUpn: string | null;
   dept: string | null;
   role: string;
   gender: string;
@@ -141,6 +143,11 @@ export default function ProfilPage() {
           <div>
             <span className="text-gray-500">Płeć:</span> {user.gender === "K" ? "Kobieta" : "Mężczyzna"}
           </div>
+          {user.email && (
+            <div>
+              <span className="text-gray-500">E-mail:</span> {user.email}
+            </div>
+          )}
         </div>
       </section>
 

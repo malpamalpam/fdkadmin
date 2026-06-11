@@ -14,6 +14,8 @@ export async function GET(request: NextRequest) {
       id: true,
       login: true,
       fullName: true,
+      email: true,
+      teamsUpn: true,
       dept: true,
       role: true,
       gender: true,

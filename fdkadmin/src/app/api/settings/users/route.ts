@@ -18,6 +18,8 @@ export async function GET(request: NextRequest) {
       id: true,
       login: true,
       fullName: true,
+      email: true,
+      teamsUpn: true,
       dept: true,
       role: true,
       gender: true,
@@ -42,7 +44,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { login, fullName, password, dept, role, gender, position } = body;
+  const { login, fullName, password, email, teamsUpn, dept, role, gender, position } = body;
 
   if (!login || !fullName || !password) {
     return NextResponse.json({ error: "Login, imię i nazwisko oraz hasło są wymagane" }, { status: 400 });
@@ -61,6 +63,8 @@ export async function POST(request: NextRequest) {
           active: true,
           fullName,
           passwordHash,
+          email: email || null,
+          teamsUpn: teamsUpn || null,
           dept: dept || null,
           role: role || "EMPLOYEE",
           gender: gender || "K",
@@ -79,6 +83,8 @@ export async function POST(request: NextRequest) {
       login: login.toLowerCase(),
       passwordHash,
       fullName,
+      email: email || null,
+      teamsUpn: teamsUpn || null,
       dept: dept || null,
       role: role || "EMPLOYEE",
       gender: gender || "K",
@@ -100,7 +106,7 @@ export async function PUT(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { id, fullName, dept, role, gender, position } = body;
+  const { id, fullName, email, teamsUpn, dept, role, gender, position } = body;
 
   if (!id) {
     return NextResponse.json({ error: "ID użytkownika jest wymagane" }, { status: 400 });
@@ -108,6 +114,8 @@ export async function PUT(request: NextRequest) {
 
   const updateData: Record<string, unknown> = {};
   if (fullName !== undefined) updateData.fullName = fullName;
+  if (email !== undefined) updateData.email = email || null;
+  if (teamsUpn !== undefined) updateData.teamsUpn = teamsUpn || null;
   if (dept !== undefined) updateData.dept = dept || null;
   if (role !== undefined) updateData.role = role;
   if (gender !== undefined) updateData.gender = gender;

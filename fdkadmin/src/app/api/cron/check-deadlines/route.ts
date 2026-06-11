@@ -1,18 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendTeamsMessage, formatDeadline } from "@/lib/teams";
-
-const DEPT_LABELS: Record<string, string> = {
-  KADRY: "Kadry",
-  ADMINISTRACJA: "Administracja",
-  KONTAKT: "Kontakt",
-  HR: "HR",
-  KSIEGOWOSC: "Księgowość",
-  B2B: "B2B",
-  OPLATY: "Opłaty",
-  TUTLO: "Tutlo",
-  INNY: "Inny",
-};
+import { sendTeamsAdaptiveCard, formatDeadline } from "@/lib/teams";
+import { sendEmail, buildCaseEmailHtml } from "@/lib/email";
+import { DEPT_LABELS } from "@/lib/constants";
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -24,26 +14,30 @@ export async function GET(request: NextRequest) {
   const in30min = new Date(now.getTime() + 30 * 60 * 1000);
 
   const openCases = await prisma.case.findMany({
-    where: {
-      status: { not: "ZAMKNIETE" },
-    },
+    where: { status: { not: "ZAMKNIETE" } },
   });
 
   let alertsSent = 0;
 
   for (const c of openCases) {
-    // Alert: case waiting for deadline > 30 min
+    // Alert 1: ZGLOSZONA (unreported) > 30 min without acceptance
     if (
-      c.status === "OCZEKUJE_NA_DEADLINE" &&
+      (c.status === "ZGLOSZONA" || c.status === "OCZEKUJE_NA_DEADLINE") &&
       !c.alertNoDeadlineSent
     ) {
       const minutesSinceCreation = Math.floor(
         (now.getTime() - c.createdAt.getTime()) / 60000
       );
       if (minutesSinceCreation >= 30) {
-        await sendTeamsMessage(
-          "⚠ Brak deadline'u",
-          `**${c.client}** — ${c.topic}\n\nOd **${minutesSinceCreation} min** nikt nie wyznaczył deadline'u!\n\nDział: ${DEPT_LABELS[c.dept] || c.dept}\n\nOdpowiada: **${c.owner || "nieprzypisany"}**`
+        const mentions: { name: string; upn: string }[] = [];
+        if (c.ownerId) {
+          const ownerUser = await prisma.user.findUnique({ where: { id: c.ownerId } });
+          if (ownerUser?.teamsUpn) mentions.push({ name: ownerUser.fullName, upn: ownerUser.teamsUpn });
+        }
+        await sendTeamsAdaptiveCard(
+          "⚠ Sprawa nieprzyjęta",
+          `**${c.client}** — ${c.topic}\n\nOd **${minutesSinceCreation} min** nikt nie przyjął zgłoszenia!\n\nDział: ${DEPT_LABELS[c.dept] || c.dept}\n\nOdpowiada: **${c.owner || "nieprzypisany"}**`,
+          mentions
         );
         await prisma.case.update({
           where: { id: c.id },
@@ -53,30 +47,92 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Alert 2: PRZYJETA but first contact not sent > 30 min
+    if (
+      (c.status === "PRZYJETA" || c.status === "NOWE") &&
+      c.acceptedAt &&
+      !c.firstContactSentAt &&
+      !c.alertNoContactSent
+    ) {
+      const minutesSinceAccepted = Math.floor(
+        (now.getTime() - c.acceptedAt.getTime()) / 60000
+      );
+      if (minutesSinceAccepted >= 30) {
+        const mentions: { name: string; upn: string }[] = [];
+        if (c.ownerId) {
+          const ownerUser = await prisma.user.findUnique({ where: { id: c.ownerId } });
+          if (ownerUser?.teamsUpn) mentions.push({ name: ownerUser.fullName, upn: ownerUser.teamsUpn });
+        }
+        await sendTeamsAdaptiveCard(
+          "⚠ Kontakt wstępny niewysłany",
+          `**${c.client}** — ${c.topic}\n\nSprawa przyjęta **${minutesSinceAccepted} min** temu, ale kontakt wstępny wciąż niewysłany!\n\nOdpowiada: **${c.owner || "nieprzypisany"}**`,
+          mentions
+        );
+        await prisma.case.update({
+          where: { id: c.id },
+          data: { alertNoContactSent: true },
+        });
+        alertsSent++;
+      }
+    }
+
     // Only check deadline alerts for cases that have a deadline
     if (!c.deadline) continue;
 
-    // Alert: deadline within 30 minutes
+    // Alert 3: 30 min before deadline (Teams + email)
     if (!c.alert30Sent && c.deadline <= in30min && c.deadline > now) {
       const minutesLeft = Math.ceil(
         (c.deadline.getTime() - now.getTime()) / 60000
       );
-      await sendTeamsMessage(
+      const mentions: { name: string; upn: string }[] = [];
+      if (c.ownerId) {
+        const ownerUser = await prisma.user.findUnique({ where: { id: c.ownerId } });
+        if (ownerUser?.teamsUpn) mentions.push({ name: ownerUser.fullName, upn: ownerUser.teamsUpn });
+      }
+      await sendTeamsAdaptiveCard(
         `⏰ Za ${minutesLeft} min mija deadline`,
-        `**${c.client}** (${c.topic})\n\nOdpowiada: **${c.owner || "nieprzypisany"}**\n\nDeadline: ${formatDeadline(c.deadline)}`
+        `**${c.client}** (${c.topic})\n\nOdpowiada: **${c.owner || "nieprzypisany"}**\n\nDeadline: ${formatDeadline(c.deadline)}`,
+        mentions
       );
+
+      // Email to owner
+      if (!c.email30Sent && c.ownerId) {
+        const ownerUser = await prisma.user.findUnique({ where: { id: c.ownerId } });
+        if (ownerUser?.email) {
+          await sendEmail({
+            to: [ownerUser.email],
+            subject: `⏰ Za ${minutesLeft} min mija deadline: ${c.client}`,
+            html: buildCaseEmailHtml({
+              title: `Za ${minutesLeft} min mija deadline`,
+              client: c.client,
+              topic: c.topic,
+              dept: DEPT_LABELS[c.dept] || c.dept,
+              owner: c.owner || "nieprzypisany",
+              deadline: formatDeadline(c.deadline),
+              caseId: c.id,
+            }),
+          });
+        }
+      }
+
       await prisma.case.update({
         where: { id: c.id },
-        data: { alert30Sent: true },
+        data: { alert30Sent: true, email30Sent: true },
       });
       alertsSent++;
     }
 
-    // Alert: deadline passed
+    // Alert 4: deadline passed
     if (!c.alertOverSent && c.deadline <= now) {
-      await sendTeamsMessage(
+      const mentions: { name: string; upn: string }[] = [];
+      if (c.ownerId) {
+        const ownerUser = await prisma.user.findUnique({ where: { id: c.ownerId } });
+        if (ownerUser?.teamsUpn) mentions.push({ name: ownerUser.fullName, upn: ownerUser.teamsUpn });
+      }
+      await sendTeamsAdaptiveCard(
         "🔴 DEADLINE PRZEKROCZONY",
-        `**${c.client}** (${c.topic})\n\nOdpowiada: **${c.owner || "nieprzypisany"}**\n\nDeadline: ${formatDeadline(c.deadline)}\n\nKonieczny natychmiastowy kontakt!`
+        `**${c.client}** (${c.topic})\n\nOdpowiada: **${c.owner || "nieprzypisany"}**\n\nDeadline: ${formatDeadline(c.deadline)}\n\nKonieczny natychmiastowy kontakt!`,
+        mentions
       );
       await prisma.case.update({
         where: { id: c.id },

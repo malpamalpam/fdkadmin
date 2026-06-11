@@ -30,11 +30,23 @@ export async function POST(
     return NextResponse.json({ error: "Kontakt wstępny już oznaczony jako wysłany" }, { status: 400 });
   }
 
+  const now = new Date();
+
+  // Compute deadline: firstContactSentAt + responseTime hours
+  let deadline = caseRecord.deadline; // keep existing if already set (legacy cases)
+  if (caseRecord.responseTime && !caseRecord.deadline) {
+    deadline = new Date(now.getTime() + caseRecord.responseTime * 60 * 60 * 1000);
+  }
+
   const updated = await prisma.case.update({
     where: { id },
     data: {
-      firstContactAt: caseRecord.firstContactAt || new Date(),
-      firstContactSentAt: new Date(),
+      firstContactAt: caseRecord.firstContactAt || now,
+      firstContactSentAt: now,
+      deadline,
+      deadlineSetAt: deadline ? now : undefined,
+      deadlineSetBy: deadline ? session.fullName : undefined,
+      previousStatus: caseRecord.status,
       status: "KONTAKT_WSTEPNY",
     },
   });

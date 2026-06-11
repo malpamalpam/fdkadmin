@@ -24,10 +24,7 @@ export async function POST(
   }
 
   if (caseRecord.extended) {
-    return NextResponse.json(
-      { error: "Przedłużenie jest możliwe tylko raz" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Przedłużenie jest możliwe tylko raz" }, { status: 400 });
   }
 
   if (caseRecord.status === "ZAMKNIETE") {
@@ -43,6 +40,8 @@ export async function POST(
   const updated = await prisma.case.update({
     where: { id },
     data: {
+      previousDeadline: caseRecord.deadline,
+      previousStatus: caseRecord.status,
       deadline: newDeadline,
       extended: true,
       status: "PRZEDLUZONO",
@@ -53,7 +52,7 @@ export async function POST(
 
   await sendTeamsMessage(
     "⏳ Przedłużenie +1h",
-    `**${caseRecord.client}** — ${caseRecord.topic}\n\nNowy deadline: **${formatDeadline(newDeadline)}**\n\nOdpowiada: ${caseRecord.owner || "nieprzypisany"}\n\nPamiętaj o wysłaniu wiadomości o przedłużeniu do beneficjenta!`
+    `**${caseRecord.client}** — ${caseRecord.topic}\n\nNowy deadline: **${formatDeadline(newDeadline)}**\n\nOdpowiada: ${caseRecord.owner || "nieprzypisany"}`
   );
 
   return NextResponse.json(updated);

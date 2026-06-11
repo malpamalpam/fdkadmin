@@ -1,6 +1,6 @@
 {
   "name": "fdk-admin",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -10,12 +10,14 @@
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate-v2": "npx tsx --env-file=.env prisma/migrate_v2.ts",
+    "db:migrate-v3": "npx tsx --env-file=.env prisma/migrate_v3.ts",
     "db:seed": "npx tsx --env-file=.env prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "6.9.0",
     "bcryptjs": "^2.4.3",
     "jose": "^5.9.6",
+    "resend": "^4.1.2",
     "next": "^14.2.21",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
