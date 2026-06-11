@@ -149,7 +149,7 @@ export function CaseCard({ caseData, bccEmail, onRefresh }: CaseCardProps) {
   function generateExtensionBody(): string {
     if (!deadlineDate || !user) return "";
 
-    const newDeadline = new Date(deadlineDate.getTime());
+    const newDeadline = new Date(deadlineDate.getTime() + 60 * 60 * 1000);
     const deadlineStr = newDeadline.toLocaleTimeString("pl-PL", {
       hour: "2-digit",
       minute: "2-digit",
