@@ -114,7 +114,7 @@ export default function PanelPage() {
   });
 
   // Unique clients for autocomplete
-  const allClients = [...new Set([...openCases, ...closedCases].map((c) => c.client))].sort((a, b) => a.localeCompare(b, "pl"));
+  const allClients = Array.from(new Set([...openCases, ...closedCases].map((c) => c.client))).sort((a, b) => a.localeCompare(b, "pl"));
 
   return (
     <div>
