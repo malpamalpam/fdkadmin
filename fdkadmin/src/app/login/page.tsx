@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
-  const [worker, setWorker] = useState("");
-  const [workers, setWorkers] = useState<{ id: string; name: string }[]>([]);
+  const [users, setUsers] = useState<{ id: string; login: string; fullName: string }[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -15,8 +15,10 @@ export default function LoginPage() {
     fetch("/api/auth/workers")
       .then((res) => res.json())
       .then((data) => {
-        setWorkers(data);
-        if (data.length > 0) setWorker(data[0].name);
+        if (Array.isArray(data)) {
+          setUsers(data);
+          if (data.length > 0) setLogin(data[0].login);
+        }
       })
       .catch(() => {});
   }, []);
@@ -30,7 +32,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password, worker }),
+        body: JSON.stringify({ login, password }),
       });
 
       if (res.ok) {
@@ -60,7 +62,36 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Hasło zespołowe
+                Użytkownik
+              </label>
+              {users.length > 0 ? (
+                <select
+                  value={login}
+                  onChange={(e) => setLogin(e.target.value)}
+                  required
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                >
+                  {users.map((u) => (
+                    <option key={u.id} value={u.login}>
+                      {u.fullName}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={login}
+                  onChange={(e) => setLogin(e.target.value)}
+                  placeholder="Wpisz swój login..."
+                  required
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Hasło
               </label>
               <input
                 type="password"
@@ -72,35 +103,6 @@ export default function LoginPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Kto się loguje?
-              </label>
-              {workers.length > 0 ? (
-                <select
-                  value={worker}
-                  onChange={(e) => setWorker(e.target.value)}
-                  required
-                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                >
-                  {workers.map((w) => (
-                    <option key={w.id} value={w.name}>
-                      {w.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  value={worker}
-                  onChange={(e) => setWorker(e.target.value)}
-                  placeholder="Wpisz swoje imię..."
-                  required
-                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                />
-              )}
-            </div>
-
             {error && (
               <div className="text-red-600 text-sm bg-red-50 rounded-lg p-3">
                 {error}
@@ -109,7 +111,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading || !worker}
+              disabled={loading || !login}
               className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
               {loading ? "Logowanie..." : "Zaloguj się"}

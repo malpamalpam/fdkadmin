@@ -9,14 +9,22 @@ interface CaseData {
   createdAt: string;
   channel: string;
   taker: string;
+  takerId: string | null;
   client: string;
   topic: string;
   dept: string;
   owner: string | null;
-  deadline: string;
+  ownerId: string | null;
+  salutation: string;
+  language: string;
+  deadline: string | null;
+  deadlineSetAt: string | null;
+  deadlineSetBy: string | null;
   status: string;
   extended: boolean;
   firstContactAt: string | null;
+  firstContactSentAt: string | null;
+  extensionSentAt: string | null;
   closedAt: string | null;
   note: string | null;
 }
@@ -51,17 +59,20 @@ export default function PanelPage() {
 
   useEffect(() => {
     fetchCases();
-    const interval = setInterval(fetchCases, 30000); // 30s auto-refresh
+    const interval = setInterval(fetchCases, 30000);
     return () => clearInterval(interval);
   }, [fetchCases]);
 
-  // Update page title with overdue count
   useEffect(() => {
     const overdue = openCases.filter(
-      (c) => new Date(c.deadline) < new Date()
+      (c) => c.deadline && new Date(c.deadline) < new Date()
     ).length;
-    document.title = overdue > 0
-      ? `(${overdue}⚠) FDK Rejestr`
+    const pendingDeadline = openCases.filter(
+      (c) => c.status === "OCZEKUJE_NA_DEADLINE"
+    ).length;
+    const alerts = overdue + pendingDeadline;
+    document.title = alerts > 0
+      ? `(${alerts}⚠) FDK Rejestr`
       : "FDK Rejestr zgłoszeń";
   }, [openCases]);
 
@@ -73,11 +84,20 @@ export default function PanelPage() {
     );
   }
 
+  // Sort: OCZEKUJE_NA_DEADLINE first, then by deadline
+  const sortedOpen = [...openCases].sort((a, b) => {
+    const aWaiting = a.status === "OCZEKUJE_NA_DEADLINE" ? 0 : 1;
+    const bWaiting = b.status === "OCZEKUJE_NA_DEADLINE" ? 0 : 1;
+    if (aWaiting !== bWaiting) return aWaiting - bWaiting;
+    if (!a.deadline) return -1;
+    if (!b.deadline) return 1;
+    return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+  });
+
   return (
     <div>
       <StatsBar openCases={openCases} closedCases={closedCases} />
 
-      {/* Tabs */}
       <div className="flex gap-2 mb-4">
         <button
           onClick={() => setTab("open")}
@@ -101,15 +121,14 @@ export default function PanelPage() {
         </button>
       </div>
 
-      {/* Cases list */}
       {tab === "open" && (
         <div className="space-y-3">
-          {openCases.length === 0 ? (
+          {sortedOpen.length === 0 ? (
             <div className="text-center py-12 text-gray-400">
               Brak otwartych spraw
             </div>
           ) : (
-            openCases.map((c) => (
+            sortedOpen.map((c) => (
               <CaseCard
                 key={c.id}
                 caseData={c}
@@ -148,7 +167,7 @@ export default function PanelPage() {
                     new Date(c.closedAt).toLocaleString("pl-PL", {
                       timeZone: "Europe/Warsaw",
                     })}
-                  {c.closedAt && new Date(c.closedAt) > new Date(c.deadline) && (
+                  {c.closedAt && c.deadline && new Date(c.closedAt) > new Date(c.deadline) && (
                     <span className="text-red-500 ml-2">⚠ po deadline</span>
                   )}
                 </div>

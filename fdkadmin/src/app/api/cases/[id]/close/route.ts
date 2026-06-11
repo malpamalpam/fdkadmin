@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyAuth } from "@/lib/auth";
+import { verifyAuth, canAccessCase } from "@/lib/auth";
 import { sendTeamsMessage, formatDeadline } from "@/lib/teams";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { authenticated } = verifyAuth(request);
-  if (!authenticated) {
+  const session = await verifyAuth(request);
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -29,12 +29,16 @@ export async function POST(
     return NextResponse.json({ error: "Nie znaleziono sprawy" }, { status: 404 });
   }
 
+  if (!canAccessCase(session, caseRecord)) {
+    return NextResponse.json({ error: "Brak uprawnień" }, { status: 403 });
+  }
+
   if (caseRecord.status === "ZAMKNIETE") {
     return NextResponse.json({ error: "Sprawa jest już zamknięta" }, { status: 400 });
   }
 
   const closedAt = new Date();
-  const isOverdue = closedAt > caseRecord.deadline;
+  const isOverdue = caseRecord.deadline ? closedAt > caseRecord.deadline : false;
 
   const updated = await prisma.case.update({
     where: { id },

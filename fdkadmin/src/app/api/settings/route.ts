@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyAuth } from "@/lib/auth";
+import { verifyAuth, isAdmin } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
-  const { authenticated } = verifyAuth(request);
-  if (!authenticated) {
+  const session = await verifyAuth(request);
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -20,9 +20,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const { authenticated } = verifyAuth(request);
-  if (!authenticated) {
+  const session = await verifyAuth(request);
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!isAdmin(session)) {
+    return NextResponse.json({ error: "Tylko admin może zmieniać ustawienia" }, { status: 403 });
   }
 
   const body = await request.json();

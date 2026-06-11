@@ -14,24 +14,44 @@ const DEPARTMENTS = [
   { value: "ADMINISTRACJA", label: "Administracja" },
   { value: "KONTAKT", label: "Kontakt" },
   { value: "HR", label: "HR" },
-  { value: "HR_ENG", label: "HR ENG" },
+  { value: "KSIEGOWOSC", label: "Księgowość" },
+  { value: "B2B", label: "B2B" },
+  { value: "OPLATY", label: "Opłaty" },
   { value: "TUTLO", label: "Tutlo" },
   { value: "INNY", label: "Inny" },
 ];
+
+const SALUTATIONS = [
+  { value: "PAN", label: "Pan" },
+  { value: "PANI", label: "Pani" },
+];
+
+const LANGUAGES = [
+  { value: "PL", label: "Polski" },
+  { value: "EN", label: "English" },
+  { value: "RU", label: "Русский" },
+];
+
+interface WorkerOption {
+  id: string;
+  name: string;
+  dept: string | null;
+}
 
 export default function NowePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [workers, setWorkers] = useState<{ id: string; name: string }[]>([]);
+  const [workers, setWorkers] = useState<WorkerOption[]>([]);
 
   const [channel, setChannel] = useState("PHONE");
   const [client, setClient] = useState("");
   const [topic, setTopic] = useState("");
   const [dept, setDept] = useState("KADRY");
   const [owner, setOwner] = useState("");
-  const [deadlineOffset, setDeadlineOffset] = useState(3); // hours
-  const [customDeadline, setCustomDeadline] = useState("");
+  const [ownerId, setOwnerId] = useState("");
+  const [salutation, setSalutation] = useState("PAN");
+  const [language, setLanguage] = useState("PL");
 
   useEffect(() => {
     fetch("/api/settings/workers")
@@ -40,20 +60,18 @@ export default function NowePage() {
       .catch(() => {});
   }, []);
 
-  function getDeadlineDate(): Date {
-    if (customDeadline) {
-      return new Date(customDeadline);
+  function handleOwnerChange(value: string) {
+    if (value === "") {
+      setOwner("");
+      setOwnerId("");
+    } else {
+      const w = workers.find((w) => w.id === value);
+      if (w) {
+        setOwner(w.name);
+        setOwnerId(w.id);
+      }
     }
-    return new Date(Date.now() + deadlineOffset * 60 * 60 * 1000);
   }
-
-  const deadlinePreview = getDeadlineDate().toLocaleString("pl-PL", {
-    timeZone: "Europe/Warsaw",
-    hour: "2-digit",
-    minute: "2-digit",
-    day: "2-digit",
-    month: "2-digit",
-  });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -61,8 +79,6 @@ export default function NowePage() {
     setLoading(true);
 
     try {
-      const deadline = getDeadlineDate().toISOString();
-
       const res = await fetch("/api/cases", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -72,7 +88,9 @@ export default function NowePage() {
           topic,
           dept,
           owner: owner || null,
-          deadline,
+          ownerId: ownerId || null,
+          salutation,
+          language,
         }),
       });
 
@@ -132,6 +150,52 @@ export default function NowePage() {
           />
         </div>
 
+        {/* Salutation & Language */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Forma grzecznościowa *
+            </label>
+            <div className="flex gap-2">
+              {SALUTATIONS.map((s) => (
+                <button
+                  key={s.value}
+                  type="button"
+                  onClick={() => setSalutation(s.value)}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm border ${
+                    salutation === s.value
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Język beneficjenta *
+            </label>
+            <div className="flex gap-2">
+              {LANGUAGES.map((l) => (
+                <button
+                  key={l.value}
+                  type="button"
+                  onClick={() => setLanguage(l.value)}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm border ${
+                    language === l.value
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Topic */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -171,55 +235,22 @@ export default function NowePage() {
             Pracownik odpowiedzialny
           </label>
           <select
-            value={owner}
-            onChange={(e) => setOwner(e.target.value)}
+            value={ownerId}
+            onChange={(e) => handleOwnerChange(e.target.value)}
             className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
             <option value="">— nieprzypisany —</option>
             {workers.map((w) => (
-              <option key={w.id} value={w.name}>
+              <option key={w.id} value={w.id}>
                 {w.name}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Deadline */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Deadline *
-          </label>
-          <div className="flex flex-wrap gap-2 mb-2">
-            {[1, 2, 3].map((h) => (
-              <button
-                key={h}
-                type="button"
-                onClick={() => {
-                  setDeadlineOffset(h);
-                  setCustomDeadline("");
-                }}
-                className={`px-4 py-2 rounded-lg text-sm border ${
-                  deadlineOffset === h && !customDeadline
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                +{h}h
-              </button>
-            ))}
-            <input
-              type="datetime-local"
-              value={customDeadline}
-              onChange={(e) => {
-                setCustomDeadline(e.target.value);
-                setDeadlineOffset(0);
-              }}
-              className="border rounded-lg px-3 py-2 text-sm"
-            />
-          </div>
-          <p className="text-sm text-gray-500">
-            Deadline: <strong>{deadlinePreview}</strong>
-          </p>
+        {/* Info: no deadline at this step */}
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-sm text-purple-800">
+          ⏳ Deadline zostanie wyznaczony przez pracownika odpowiedzialnego po przyjęciu zgłoszenia.
         </div>
 
         {error && (
@@ -234,7 +265,7 @@ export default function NowePage() {
             disabled={loading}
             className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
-            {loading ? "Zapisywanie..." : "Zapisz zgłoszenie"}
+            {loading ? "Zapisywanie..." : "Przyjmij zgłoszenie"}
           </button>
           <button
             type="button"

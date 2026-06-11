@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth, canAccessCase } from "@/lib/auth";
 
-export async function POST(
+export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -22,22 +22,10 @@ export async function POST(
     return NextResponse.json({ error: "Brak uprawnień" }, { status: 403 });
   }
 
-  if (caseRecord.status === "ZAMKNIETE") {
-    return NextResponse.json({ error: "Sprawa jest już zamknięta" }, { status: 400 });
-  }
-
-  if (caseRecord.firstContactSentAt) {
-    return NextResponse.json({ error: "Kontakt wstępny już oznaczony jako wysłany" }, { status: 400 });
-  }
-
-  const updated = await prisma.case.update({
-    where: { id },
-    data: {
-      firstContactAt: caseRecord.firstContactAt || new Date(),
-      firstContactSentAt: new Date(),
-      status: "KONTAKT_WSTEPNY",
-    },
+  const history = await prisma.caseHistory.findMany({
+    where: { caseId: id },
+    orderBy: { changedAt: "desc" },
   });
 
-  return NextResponse.json(updated);
+  return NextResponse.json(history);
 }

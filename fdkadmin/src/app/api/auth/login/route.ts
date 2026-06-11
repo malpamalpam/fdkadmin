@@ -1,38 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
+import { signToken } from "@/lib/jwt";
 
 export async function POST(request: NextRequest) {
-  const { password, worker } = await request.json();
+  const { login, password } = await request.json();
 
-  if (password !== process.env.TEAM_PASSWORD) {
-    return NextResponse.json({ error: "Nieprawidłowe hasło" }, { status: 401 });
+  if (!login || !password) {
+    return NextResponse.json({ error: "Login i hasło są wymagane" }, { status: 400 });
   }
 
-  // Find or create worker
-  let workerRecord = await prisma.worker.findFirst({
-    where: { name: worker, active: true },
+  const user = await prisma.user.findUnique({
+    where: { login: login.toLowerCase() },
   });
 
-  if (!workerRecord) {
-    // Auto-create worker on first login with valid password
-    workerRecord = await prisma.worker.upsert({
-      where: { name: worker },
-      update: { active: true },
-      create: { name: worker },
-    });
+  if (!user || !user.active) {
+    return NextResponse.json({ error: "Nieprawidłowy login lub hasło" }, { status: 401 });
   }
 
-  const response = NextResponse.json({ success: true });
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) {
+    return NextResponse.json({ error: "Nieprawidłowy login lub hasło" }, { status: 401 });
+  }
 
-  response.cookies.set("fdk_session", "valid", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7, // 7 days
+  const token = await signToken({
+    userId: user.id,
+    login: user.login,
+    fullName: user.fullName,
+    role: user.role,
+    dept: user.dept,
+    gender: user.gender,
   });
 
-  response.cookies.set("fdk_worker", worker, {
+  const response = NextResponse.json({
+    success: true,
+    user: {
+      id: user.id,
+      fullName: user.fullName,
+      role: user.role,
+      dept: user.dept,
+    },
+  });
+
+  response.cookies.set("fdk_token", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

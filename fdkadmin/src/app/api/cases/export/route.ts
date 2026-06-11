@@ -13,17 +13,31 @@ const DEPT_LABELS: Record<string, string> = {
   ADMINISTRACJA: "Administracja",
   KONTAKT: "Kontakt",
   HR: "HR",
-  HR_ENG: "HR ENG",
+  KSIEGOWOSC: "Księgowość",
+  B2B: "B2B",
+  OPLATY: "Opłaty",
   TUTLO: "Tutlo",
   INNY: "Inny",
 };
 
 const STATUS_LABELS: Record<string, string> = {
   NOWE: "Nowe",
+  OCZEKUJE_NA_DEADLINE: "Oczekuje na deadline",
   KONTAKT_WSTEPNY: "Kontakt wstępny wysłany",
   W_TOKU: "W toku",
   PRZEDLUZONO: "Przedłużono",
   ZAMKNIETE: "Zamknięte",
+};
+
+const SALUTATION_LABELS: Record<string, string> = {
+  PAN: "Pan",
+  PANI: "Pani",
+};
+
+const LANGUAGE_LABELS: Record<string, string> = {
+  PL: "PL",
+  EN: "EN",
+  RU: "RU",
 };
 
 function formatDatePL(date: Date | null): string {
@@ -53,8 +67,8 @@ function escapeCSV(value: string): string {
 }
 
 export async function GET(request: NextRequest) {
-  const { authenticated } = verifyAuth(request);
-  if (!authenticated) {
+  const session = await verifyAuth(request);
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -75,6 +89,8 @@ export async function GET(request: NextRequest) {
     "Status sprawy",
     "Kiedy została udzielona odpowiedź",
     "Komentarz",
+    "Forma",
+    "Język",
   ];
 
   const rows = cases.map((c) => [
@@ -90,6 +106,8 @@ export async function GET(request: NextRequest) {
     STATUS_LABELS[c.status] || c.status,
     formatDateTimePL(c.closedAt),
     c.note || "",
+    SALUTATION_LABELS[c.salutation] || c.salutation,
+    LANGUAGE_LABELS[c.language] || c.language,
   ]);
 
   const csv =
@@ -97,7 +115,6 @@ export async function GET(request: NextRequest) {
     "\n" +
     rows.map((row) => row.map(escapeCSV).join(";")).join("\n");
 
-  // BOM for UTF-8 Excel compatibility
   const BOM = "\uFEFF";
   const body = BOM + csv;
 

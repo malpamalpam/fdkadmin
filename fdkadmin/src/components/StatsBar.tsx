@@ -3,7 +3,7 @@
 interface Case {
   id: string;
   status: string;
-  deadline: string;
+  deadline: string | null;
   closedAt: string | null;
   createdAt: string;
 }
@@ -15,7 +15,12 @@ interface StatsBarProps {
 
 export function StatsBar({ openCases, closedCases }: StatsBarProps) {
   const now = new Date();
-  const overdue = openCases.filter((c) => new Date(c.deadline) < now).length;
+  const overdue = openCases.filter(
+    (c) => c.deadline && new Date(c.deadline) < now
+  ).length;
+  const pendingDeadline = openCases.filter(
+    (c) => c.status === "OCZEKUJE_NA_DEADLINE"
+  ).length;
   const today = openCases.filter(
     (c) => new Date(c.createdAt).toDateString() === now.toDateString()
   ).length;
@@ -23,7 +28,7 @@ export function StatsBar({ openCases, closedCases }: StatsBarProps) {
   const stats = [
     { label: "Otwarte", value: openCases.length, color: "bg-blue-500" },
     { label: "Po terminie", value: overdue, color: overdue > 0 ? "bg-red-500" : "bg-gray-400" },
-    { label: "Dziś przyjęte", value: today, color: "bg-green-500" },
+    { label: "Bez deadline'u", value: pendingDeadline, color: pendingDeadline > 0 ? "bg-purple-500" : "bg-gray-400" },
     { label: "Zamknięte (30 dni)", value: closedCases.length, color: "bg-gray-500" },
   ];
 

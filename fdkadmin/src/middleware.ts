@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyToken } from "@/lib/jwt";
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Skip auth for login page, API routes, and static files
@@ -13,10 +14,20 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check session cookie
-  const session = request.cookies.get("fdk_session");
-  if (session?.value !== "valid") {
+  // Check JWT cookie
+  const token = request.cookies.get("fdk_token");
+  if (!token?.value) {
     return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  const payload = await verifyToken(token.value);
+  if (!payload) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // Settings page only for ADMIN
+  if (pathname.startsWith("/panel/ustawienia") && payload.role !== "ADMIN") {
+    return NextResponse.redirect(new URL("/panel", request.url));
   }
 
   return NextResponse.next();

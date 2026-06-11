@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
-import { sendTeamsMessage, formatDeadline } from "@/lib/teams";
+import { sendTeamsMessage } from "@/lib/teams";
+
+const DEPT_LABELS: Record<string, string> = {
+  KADRY: "Kadry",
+  ADMINISTRACJA: "Administracja",
+  KONTAKT: "Kontakt",
+  HR: "HR",
+  KSIEGOWOSC: "Księgowość",
+  B2B: "B2B",
+  OPLATY: "Opłaty",
+  TUTLO: "Tutlo",
+  INNY: "Inny",
+};
 
 const CHANNEL_LABELS: Record<string, string> = {
   PHONE: "Telefon",
@@ -9,24 +21,27 @@ const CHANNEL_LABELS: Record<string, string> = {
   SMS: "SMS",
 };
 
-const DEPT_LABELS: Record<string, string> = {
-  KADRY: "Kadry",
-  ADMINISTRACJA: "Administracja",
-  KONTAKT: "Kontakt",
-  HR: "HR",
-  HR_ENG: "HR ENG",
-  TUTLO: "Tutlo",
-  INNY: "Inny",
-};
-
 export async function GET(request: NextRequest) {
-  const { authenticated } = verifyAuth(request);
-  if (!authenticated) {
+  const session = await verifyAuth(request);
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const url = new URL(request.url);
   const showClosed = url.searchParams.get("closed") === "true";
+
+  // Build where clause based on role
+  let roleFilter = {};
+  if (session.role === "EMPLOYEE") {
+    const orConditions: Record<string, unknown>[] = [
+      { takerId: session.userId },
+      { ownerId: session.userId },
+    ];
+    if (session.dept) {
+      orConditions.push({ dept: session.dept });
+    }
+    roleFilter = { OR: orConditions };
+  }
 
   if (showClosed) {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -34,6 +49,7 @@ export async function GET(request: NextRequest) {
       where: {
         status: "ZAMKNIETE",
         closedAt: { gte: thirtyDaysAgo },
+        ...roleFilter,
       },
       orderBy: { closedAt: "desc" },
     });
@@ -41,62 +57,53 @@ export async function GET(request: NextRequest) {
   }
 
   const cases = await prisma.case.findMany({
-    where: { status: { not: "ZAMKNIETE" } },
-    orderBy: { deadline: "asc" },
+    where: {
+      status: { not: "ZAMKNIETE" },
+      ...roleFilter,
+    },
+    orderBy: [
+      // Cases without deadline first (OCZEKUJE_NA_DEADLINE)
+      { deadline: { sort: "asc", nulls: "first" } },
+    ],
   });
 
   return NextResponse.json(cases);
 }
 
 export async function POST(request: NextRequest) {
-  const { authenticated, worker } = verifyAuth(request);
-  if (!authenticated || !worker) {
+  const session = await verifyAuth(request);
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const body = await request.json();
-  const { channel, client, topic, dept, owner, deadline } = body;
+  const { channel, client, topic, dept, owner, ownerId, salutation, language } = body;
 
-  // Validate required fields
-  if (!channel || !client || !topic || !dept || !deadline) {
+  if (!channel || !client || !topic || !dept || !salutation) {
     return NextResponse.json({ error: "Brakuje wymaganych pól" }, { status: 400 });
   }
 
-  // Validate deadline max 3h from now
-  const now = new Date();
-  const deadlineDate = new Date(deadline);
-  const maxDeadline = new Date(now.getTime() + 3 * 60 * 60 * 1000 + 60 * 1000); // +1 min tolerance
-
-  if (deadlineDate > maxDeadline) {
-    return NextResponse.json(
-      { error: "Deadline nie może przekraczać 3 godzin od momentu utworzenia" },
-      { status: 400 }
-    );
-  }
-
-  if (deadlineDate < now) {
-    return NextResponse.json(
-      { error: "Deadline nie może być w przeszłości" },
-      { status: 400 }
-    );
-  }
-
+  // New flow: no deadline at creation, status = OCZEKUJE_NA_DEADLINE
   const newCase = await prisma.case.create({
     data: {
       channel,
-      taker: worker,
+      taker: session.fullName,
+      takerId: session.userId,
       client,
       topic,
       dept,
       owner: owner || null,
-      deadline: deadlineDate,
+      ownerId: ownerId || null,
+      salutation: salutation || "PAN",
+      language: language || "PL",
+      status: "OCZEKUJE_NA_DEADLINE",
     },
   });
 
-  // Send Teams notification
+  const ownerDisplay = owner || "nieprzypisany";
   await sendTeamsMessage(
-    "📋 Nowe zgłoszenie",
-    `**Beneficjent:** ${client}\n\n**W sprawie:** ${topic}\n\n**Dział:** ${DEPT_LABELS[dept] || dept}${owner ? ` → ${owner}` : ""}\n\n**Kanał:** ${CHANNEL_LABELS[channel] || channel}\n\n**Przyjął/a:** ${worker}\n\n**Deadline:** ${formatDeadline(deadlineDate)}`
+    "🆕 Nowe zgłoszenie",
+    `**Beneficjent:** ${client}\n\n**W sprawie:** ${topic}\n\n**Dział:** ${DEPT_LABELS[dept] || dept} → ${ownerDisplay}\n\n**Kanał:** ${CHANNEL_LABELS[channel] || channel}\n\n**Przyjął/a:** ${session.fullName}\n\n**${ownerDisplay}: wyznacz deadline!**`
   );
 
   return NextResponse.json(newCase, { status: 201 });

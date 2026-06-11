@@ -22,20 +22,14 @@ export async function POST(
     return NextResponse.json({ error: "Brak uprawnień" }, { status: 403 });
   }
 
-  if (caseRecord.status === "ZAMKNIETE") {
-    return NextResponse.json({ error: "Sprawa jest już zamknięta" }, { status: 400 });
-  }
-
-  if (caseRecord.firstContactSentAt) {
-    return NextResponse.json({ error: "Kontakt wstępny już oznaczony jako wysłany" }, { status: 400 });
+  if (caseRecord.extensionSentAt) {
+    return NextResponse.json({ error: "Wiadomość o przedłużeniu już oznaczona jako wysłana" }, { status: 400 });
   }
 
   const updated = await prisma.case.update({
     where: { id },
     data: {
-      firstContactAt: caseRecord.firstContactAt || new Date(),
-      firstContactSentAt: new Date(),
-      status: "KONTAKT_WSTEPNY",
+      extensionSentAt: new Date(),
     },
   });
 

@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyAuth } from "@/lib/auth";
+import { verifyAuth, canAccessCase } from "@/lib/auth";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { authenticated } = verifyAuth(request);
-  if (!authenticated) {
+  const session = await verifyAuth(request);
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -18,6 +18,10 @@ export async function GET(
     return NextResponse.json({ error: "Nie znaleziono sprawy" }, { status: 404 });
   }
 
+  if (!canAccessCase(session, caseRecord)) {
+    return NextResponse.json({ error: "Brak uprawnień" }, { status: 403 });
+  }
+
   return NextResponse.json(caseRecord);
 }
 
@@ -25,8 +29,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { authenticated } = verifyAuth(request);
-  if (!authenticated) {
+  const session = await verifyAuth(request);
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -38,12 +42,16 @@ export async function PATCH(
     return NextResponse.json({ error: "Nie znaleziono sprawy" }, { status: 404 });
   }
 
+  if (!canAccessCase(session, caseRecord)) {
+    return NextResponse.json({ error: "Brak uprawnień" }, { status: 403 });
+  }
+
   if (caseRecord.status === "ZAMKNIETE") {
     return NextResponse.json({ error: "Sprawa jest już zamknięta" }, { status: 400 });
   }
 
-  // Only allow updating certain fields
-  const allowedFields = ["owner", "dept", "topic", "client", "channel", "status"];
+  // Only allow updating certain fields (owner change has its own endpoint)
+  const allowedFields = ["dept", "topic", "client", "channel", "status"];
   const updateData: Record<string, unknown> = {};
   for (const field of allowedFields) {
     if (body[field] !== undefined) {

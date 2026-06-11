@@ -18,39 +18,111 @@ enum Department {
   ADMINISTRACJA
   KONTAKT
   HR
-  HR_ENG
+  HR_ENG // deprecated: migrated to HR, kept for DB compat
+  KSIEGOWOSC
+  B2B
+  OPLATY
   TUTLO
   INNY
 }
 
 enum CaseStatus {
   NOWE
+  OCZEKUJE_NA_DEADLINE
   KONTAKT_WSTEPNY
   W_TOKU
   PRZEDLUZONO
   ZAMKNIETE
 }
 
-model Case {
+enum Salutation {
+  PAN
+  PANI
+}
+
+enum Language {
+  PL
+  EN
+  RU
+}
+
+enum Gender {
+  K
+  M
+}
+
+enum Role {
+  ADMIN
+  SUPERVISOR
+  EMPLOYEE
+}
+
+model User {
   id             String     @id @default(uuid())
+  login          String     @unique
+  passwordHash   String
+  fullName       String
+  dept           Department?
+  role           Role       @default(EMPLOYEE)
+  gender         Gender     @default(K)
+  position       String?
+  signatureBlock String?
+  active         Boolean    @default(true)
   createdAt      DateTime   @default(now())
-  channel        Channel
-  taker          String
-  client         String
-  topic          String
-  dept           Department
-  owner          String?
-  deadline       DateTime
-  status         CaseStatus @default(NOWE)
-  extended       Boolean    @default(false)
-  firstContactAt DateTime?
-  closedAt       DateTime?
-  note           String?
-  alert30Sent    Boolean    @default(false)
-  alertOverSent  Boolean    @default(false)
+
+  takenCases     Case[]     @relation("CaseTaker")
+  ownedCases     Case[]     @relation("CaseOwner")
+
+  @@index([login])
+}
+
+model Case {
+  id                    String      @id @default(uuid())
+  createdAt             DateTime    @default(now())
+  channel               Channel
+  taker                 String
+  takerId               String?
+  takerUser             User?       @relation("CaseTaker", fields: [takerId], references: [id])
+  client                String
+  topic                 String
+  dept                  Department
+  owner                 String?
+  ownerId               String?
+  ownerUser             User?       @relation("CaseOwner", fields: [ownerId], references: [id])
+  salutation            Salutation  @default(PAN)
+  language              Language    @default(PL)
+  deadline              DateTime?
+  deadlineSetAt         DateTime?
+  deadlineSetBy         String?
+  status                CaseStatus  @default(OCZEKUJE_NA_DEADLINE)
+  extended              Boolean     @default(false)
+  firstContactAt        DateTime?
+  firstContactSentAt    DateTime?
+  extensionSentAt       DateTime?
+  closedAt              DateTime?
+  note                  String?
+  alert30Sent           Boolean     @default(false)
+  alertOverSent         Boolean     @default(false)
+  alertNoDeadlineSent   Boolean     @default(false)
+
+  history               CaseHistory[]
 
   @@index([status])
   @@index([deadline])
+  @@index([dept])
+}
+
+model CaseHistory {
+  id        String   @id @default(uuid())
+  caseId    String
+  case      Case     @relation(fields: [caseId], references: [id])
+  changedBy String
+  changedAt DateTime @default(now())
+  field     String
+  oldValue  String?
+  newValue  String?
+
+  @@index([caseId])
 }
 
 model Setting {
