@@ -103,15 +103,30 @@ export default function PanelPage() {
     return <div className="flex items-center justify-center py-20"><div className="text-gray-500">Ładowanie...</div></div>;
   }
 
-  // Sort: ZGLOSZONA first, then PRZYJETA, then by deadline
-  const sortedOpen = [...openCases].sort((a, b) => {
-    const priority = (s: string) => s === "ZGLOSZONA" || s === "OCZEKUJE_NA_DEADLINE" ? 0 : s === "PRZYJETA" || s === "NOWE" ? 1 : 2;
-    const ap = priority(a.status), bp = priority(b.status);
-    if (ap !== bp) return ap - bp;
-    if (!a.deadline) return -1;
-    if (!b.deadline) return 1;
-    return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
-  });
+  // Group into visual sections (pkt 10)
+  const now = new Date();
+  const overdueSection = openCases
+    .filter((c) => c.deadline && new Date(c.deadline) < now)
+    .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime()); // longest overdue first
+
+  const zgloszone = openCases
+    .filter((c) => (c.status === "ZGLOSZONA" || c.status === "OCZEKUJE_NA_DEADLINE") && !(c.deadline && new Date(c.deadline) < now))
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()); // oldest first
+
+  const bezKontaktu = openCases
+    .filter((c) => (c.status === "PRZYJETA" || c.status === "NOWE") && !c.firstContactSentAt && !(c.deadline && new Date(c.deadline) < now))
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()); // oldest first
+
+  const odliczajace = openCases
+    .filter((c) => c.deadline && new Date(c.deadline) >= now && c.firstContactSentAt && c.status !== "ZGLOSZONA" && c.status !== "OCZEKUJE_NA_DEADLINE")
+    .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime()); // most urgent first
+
+  const sections = [
+    { title: "🔴 Po terminie", cases: overdueSection, color: "text-red-700" },
+    { title: "📋 Zgłoszone — oczekują na przyjęcie", cases: zgloszone, color: "text-purple-700" },
+    { title: "✔ Przyjęte — oczekują na kontakt wstępny", cases: bezKontaktu, color: "text-blue-700" },
+    { title: "⏳ Odliczanie", cases: odliczajace, color: "text-green-700" },
+  ].filter((s) => s.cases.length > 0);
 
   // Unique clients for autocomplete
   const allClients = Array.from(new Set([...openCases, ...closedCases].map((c) => c.client))).sort((a, b) => a.localeCompare(b, "pl"));
@@ -151,11 +166,18 @@ export default function PanelPage() {
       </div>
 
       {tab === "open" && (
-        <div className="space-y-3">
-          {sortedOpen.length === 0 ? (
+        <div className="space-y-4">
+          {sections.length === 0 ? (
             <div className="text-center py-12 text-gray-400">Brak otwartych spraw</div>
           ) : (
-            sortedOpen.map((c) => <CaseCard key={c.id} caseData={c} bccEmail={settings.bccEmail} settings={settings} onRefresh={fetchCases} />)
+            sections.map((section) => (
+              <div key={section.title}>
+                <h3 className={`text-sm font-semibold mb-2 ${section.color}`}>{section.title} ({section.cases.length})</h3>
+                <div className="space-y-3">
+                  {section.cases.map((c) => <CaseCard key={c.id} caseData={c} bccEmail={settings.bccEmail} settings={settings} onRefresh={fetchCases} />)}
+                </div>
+              </div>
+            ))
           )}
         </div>
       )}

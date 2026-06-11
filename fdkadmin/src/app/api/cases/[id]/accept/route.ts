@@ -36,21 +36,49 @@ export async function POST(
   const now = new Date();
   const genderSuffix = session.gender === "K" ? "ęła" : "ął";
 
-  const updated = await prisma.case.update({
-    where: { id },
-    data: {
-      responseTime,
-      acceptedAt: now,
-      acceptedBy: session.fullName,
-      previousStatus: caseRecord.status,
-      status: "PRZYJETA",
-    },
-  });
+  // Pkt 9: accepting = taking ownership
+  const previousOwner = caseRecord.owner;
+  const ownerChanged = caseRecord.ownerId !== session.userId;
 
-  await sendTeamsMessage(
-    "✔ Sprawa przyjęta",
-    `**${session.fullName}** przyjął${genderSuffix} sprawę **${caseRecord.client}**\n\nCzas reakcji: **${responseTime}h**\n\nW sprawie: ${caseRecord.topic}`
-  );
+  const txOps = [
+    prisma.case.update({
+      where: { id },
+      data: {
+        responseTime,
+        acceptedAt: now,
+        acceptedBy: session.fullName,
+        owner: session.fullName,
+        ownerId: session.userId,
+        previousStatus: caseRecord.status,
+        status: "PRZYJETA",
+      },
+    }),
+  ];
+
+  // Log owner change in history if different
+  if (ownerChanged && previousOwner) {
+    txOps.push(
+      prisma.caseHistory.create({
+        data: {
+          caseId: id,
+          changedBy: session.fullName,
+          field: "owner (przyjęcie)",
+          oldValue: previousOwner,
+          newValue: session.fullName,
+        },
+      }) as never
+    );
+  }
+
+  const [updated] = await prisma.$transaction(txOps);
+
+  // Teams notification
+  let teamsText = `**${session.fullName}** przyjął${genderSuffix} sprawę **${caseRecord.client}**\n\nCzas reakcji: **${responseTime}h**\n\nW sprawie: ${caseRecord.topic}`;
+  if (ownerChanged && previousOwner) {
+    teamsText += `\n\n🔄 Zmiana odpowiedzialnego: ${previousOwner} → ${session.fullName}`;
+  }
+
+  await sendTeamsMessage("✔ Sprawa przyjęta", teamsText);
 
   return NextResponse.json(updated);
 }

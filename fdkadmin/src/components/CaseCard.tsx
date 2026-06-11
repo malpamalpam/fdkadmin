@@ -265,7 +265,7 @@ export function CaseCard({ caseData, bccEmail, settings, onRefresh }: CaseCardPr
 
         {/* Accept form */}
         {isZgloszona && showAcceptForm && (
-          <AcceptForm caseId={caseData.id} onDone={() => { setShowAcceptForm(false); onRefresh(); }} onCancel={() => setShowAcceptForm(false)} />
+          <AcceptForm caseId={caseData.id} currentOwner={caseData.owner} currentUserId={user?.id || ""} currentUserName={user?.fullName || ""} onDone={() => { setShowAcceptForm(false); onRefresh(); }} onCancel={() => setShowAcceptForm(false)} />
         )}
 
         {/* Actions */}
@@ -378,12 +378,18 @@ export function CaseCard({ caseData, bccEmail, settings, onRefresh }: CaseCardPr
   );
 }
 
-function AcceptForm({ caseId, onDone, onCancel }: { caseId: string; onDone: () => void; onCancel: () => void }) {
+function AcceptForm({ caseId, currentOwner, currentUserId, currentUserName, onDone, onCancel }: {
+  caseId: string; currentOwner: string | null; currentUserId: string; currentUserName: string;
+  onDone: () => void; onCancel: () => void;
+}) {
   const [responseTime, setResponseTime] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const ownerDiffers = currentOwner && currentOwner !== currentUserName;
+
   async function handleSubmit() {
+    if (ownerDiffers && !confirm(`Sprawa wskazana dla ${currentOwner}. Przyjmując, przejmujesz odpowiedzialność. Kontynuować?`)) return;
     setLoading(true); setError("");
     try {
       const res = await fetch(`/api/cases/${caseId}/accept`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ responseTime }) });
@@ -395,6 +401,11 @@ function AcceptForm({ caseId, onDone, onCancel }: { caseId: string; onDone: () =
   return (
     <div className="border-t pt-3 space-y-2 bg-purple-50 rounded-lg p-3">
       <h4 className="font-medium text-sm text-purple-800">Przyjmij zgłoszenie — wybierz czas reakcji</h4>
+      {ownerDiffers && (
+        <p className="text-xs text-orange-700 bg-orange-50 rounded px-2 py-1">
+          Sprawa wskazana dla <strong>{currentOwner}</strong>. Przyjmując, przejmujesz odpowiedzialność.
+        </p>
+      )}
       <div className="flex gap-2">
         {[1, 2, 3].map((h) => (
           <button key={h} type="button" onClick={() => setResponseTime(h)}
