@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendTeamsAdaptiveCard, formatDeadline } from "@/lib/teams";
+import { sendTeamsMessage, sendTeamsAdaptiveCard, formatDeadline } from "@/lib/teams";
 import { sendEmail, buildCaseEmailHtml } from "@/lib/email";
 import { DEPT_LABELS } from "@/lib/constants";
 
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   let alertsSent = 0;
 
   for (const c of openCases) {
-    // Alert 1: ZGLOSZONA (unreported) > 30 min without acceptance
+    // Alert 1: ZGLOSZONA > 30 min without acceptance (kanał only, no @mention per matrix)
     if (
       (c.status === "ZGLOSZONA" || c.status === "OCZEKUJE_NA_DEADLINE") &&
       !c.alertNoDeadlineSent
@@ -29,15 +29,9 @@ export async function GET(request: NextRequest) {
         (now.getTime() - c.createdAt.getTime()) / 60000
       );
       if (minutesSinceCreation >= 30) {
-        const mentions: { name: string; upn: string }[] = [];
-        if (c.ownerId) {
-          const ownerUser = await prisma.user.findUnique({ where: { id: c.ownerId } });
-          if (ownerUser?.teamsUpn) mentions.push({ name: ownerUser.fullName, upn: ownerUser.teamsUpn });
-        }
-        await sendTeamsAdaptiveCard(
+        await sendTeamsMessage(
           "⚠ Sprawa nieprzyjęta",
-          `**${c.client}** — ${c.topic}\n\nOd **${minutesSinceCreation} min** nikt nie przyjął zgłoszenia!\n\nDział: ${DEPT_LABELS[c.dept] || c.dept}\n\nOdpowiada: **${c.owner || "nieprzypisany"}**`,
-          mentions
+          `**${c.client}** — ${c.topic}\n\nOd **${minutesSinceCreation} min** nikt nie przyjął zgłoszenia!\n\nDział: ${DEPT_LABELS[c.dept] || c.dept}\n\nOdpowiada: **${c.owner || "nieprzypisany"}**`
         );
         await prisma.case.update({
           where: { id: c.id },
@@ -47,7 +41,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Alert 2: PRZYJETA but first contact not sent > 30 min
+    // Alert 2: PRZYJETA but first contact not sent > 30 min (kanał only, no @mention per matrix)
     if (
       (c.status === "PRZYJETA" || c.status === "NOWE") &&
       c.acceptedAt &&
@@ -58,15 +52,9 @@ export async function GET(request: NextRequest) {
         (now.getTime() - c.acceptedAt.getTime()) / 60000
       );
       if (minutesSinceAccepted >= 30) {
-        const mentions: { name: string; upn: string }[] = [];
-        if (c.ownerId) {
-          const ownerUser = await prisma.user.findUnique({ where: { id: c.ownerId } });
-          if (ownerUser?.teamsUpn) mentions.push({ name: ownerUser.fullName, upn: ownerUser.teamsUpn });
-        }
-        await sendTeamsAdaptiveCard(
+        await sendTeamsMessage(
           "⚠ Kontakt wstępny niewysłany",
-          `**${c.client}** — ${c.topic}\n\nSprawa przyjęta **${minutesSinceAccepted} min** temu, ale kontakt wstępny wciąż niewysłany!\n\nOdpowiada: **${c.owner || "nieprzypisany"}**`,
-          mentions
+          `**${c.client}** — ${c.topic}\n\nSprawa przyjęta **${minutesSinceAccepted} min** temu, ale kontakt wstępny wciąż niewysłany!\n\nOdpowiada: **${c.owner || "nieprzypisany"}**`
         );
         await prisma.case.update({
           where: { id: c.id },
