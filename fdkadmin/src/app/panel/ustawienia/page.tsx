@@ -5,7 +5,7 @@ import { getSortedDepartments } from "@/lib/constants";
 
 const DEPT_LABELS: Record<string, string> = {
   KADRY: "Kadry", ADMINISTRACJA: "Administracja", KONTAKT: "Kontakt", HR: "HR",
-  KSIEGOWOSC: "Księgowość", B2B: "B2B", OPLATY: "Opłaty", TUTLO: "Tutlo", INNY: "Inny",
+  KSIEGOWOSC: "Księgowość", B2B: "B2B", OPLATY: "Opłaty", LEGALIZACJA: "Legalizacja", TUTLO: "Tutlo", INNY: "Inny",
 };
 
 interface Setting {
@@ -82,8 +82,16 @@ export default function UstawieniaPage() {
   }
 
   async function saveDeptEmails(code: string, emails: string[]) {
-    await fetch("/api/settings/departments", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, emails }) });
-    setDeptConfigs(deptConfigs.map((d) => d.code === code ? { ...d, emails } : d));
+    const res = await fetch("/api/settings/departments", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, emails }) });
+    if (res.ok) {
+      const updated = await res.json();
+      const exists = deptConfigs.some((d) => d.code === code);
+      if (exists) {
+        setDeptConfigs(deptConfigs.map((d) => d.code === code ? updated : d));
+      } else {
+        setDeptConfigs([...deptConfigs, updated]);
+      }
+    }
   }
 
   async function addUser() {
@@ -268,6 +276,8 @@ export default function UstawieniaPage() {
 function DeptEmailsEditor({ label, code, emails, onSave }: { label: string; code: string; emails: string[]; onSave: (emails: string[]) => void }) {
   const [list, setList] = useState(emails);
   const [input, setInput] = useState("");
+
+  useEffect(() => { setList(emails); }, [emails.join(",")]);
 
   function addEmail() {
     const trimmed = input.trim();

@@ -19,6 +19,14 @@ async function main() {
   }
   console.log(`Migrated ${migrated} department emails to emails[]`);
 
+  // Ensure Legalizacja department exists with default email
+  await prisma.departmentConfig.upsert({
+    where: { code: "LEGALIZACJA" },
+    update: {},
+    create: { code: "LEGALIZACJA", name: "Legalizacja", emails: ["legalizacja@firmadlakazdego.pl"] },
+  });
+  console.log("Ensured Legalizacja department with email");
+
   // 2. Delete seed/test cases (from v1 seed: 3 test cases)
   // Only delete if they look like seed data
   const seedClients = ["Kowalski Jan", "Nowak Anna", "Wiśniewski Piotr"];

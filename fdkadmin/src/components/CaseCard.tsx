@@ -6,7 +6,7 @@ import { CloseModal } from "./CloseModal";
 
 const DEPT_LABELS: Record<string, string> = {
   KADRY: "Kadry", ADMINISTRACJA: "Administracja", KONTAKT: "Kontakt", HR: "HR",
-  KSIEGOWOSC: "Księgowość", B2B: "B2B", OPLATY: "Opłaty", TUTLO: "Tutlo", INNY: "Inny",
+  KSIEGOWOSC: "Księgowość", B2B: "B2B", OPLATY: "Opłaty", LEGALIZACJA: "Legalizacja", TUTLO: "Tutlo", INNY: "Inny",
 };
 const CHANNEL_LABELS: Record<string, string> = { PHONE: "Telefon", EMAIL: "E-mail", SMS: "SMS" };
 const STATUS_LABELS: Record<string, string> = {

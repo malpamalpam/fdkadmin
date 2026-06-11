@@ -22,6 +22,7 @@ enum Department {
   KSIEGOWOSC
   B2B
   OPLATY
+  LEGALIZACJA
   TUTLO
   INNY
 }

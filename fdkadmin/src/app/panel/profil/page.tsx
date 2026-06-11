@@ -23,6 +23,7 @@ const DEPT_LABELS: Record<string, string> = {
   KSIEGOWOSC: "Księgowość",
   B2B: "B2B",
   OPLATY: "Opłaty",
+  LEGALIZACJA: "Legalizacja",
   TUTLO: "Tutlo",
   INNY: "Inny",
 };
