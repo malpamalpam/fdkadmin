@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth, canAccessCase } from "@/lib/auth";
 import { sendTeamsMessage, formatDeadline } from "@/lib/teams";
+import { emailCaseClosed } from "@/lib/email";
 
 export async function POST(
   request: NextRequest,
@@ -17,14 +18,10 @@ export async function POST(
   const { note } = body;
 
   if (!note || note.trim().length === 0) {
-    return NextResponse.json(
-      { error: "Komentarz jest wymagany przy zamykaniu sprawy" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Komentarz jest wymagany przy zamykaniu sprawy" }, { status: 400 });
   }
 
   const caseRecord = await prisma.case.findUnique({ where: { id } });
-
   if (!caseRecord) {
     return NextResponse.json({ error: "Nie znaleziono sprawy" }, { status: 404 });
   }
@@ -42,18 +39,17 @@ export async function POST(
 
   const updated = await prisma.case.update({
     where: { id },
-    data: {
-      previousStatus: caseRecord.status,
-      status: "ZAMKNIETE",
-      closedAt,
-      note: note.trim(),
-    },
+    data: { previousStatus: caseRecord.status, status: "ZAMKNIETE", closedAt, note: note.trim() },
   });
 
+  // Teams: kanał
   await sendTeamsMessage(
     `✅ Sprawa zamknięta${isOverdue ? " ⚠ PO DEADLINE" : ""}`,
     `**${caseRecord.client}** — ${caseRecord.topic}\n\nOdpowiedź: **${formatDeadline(closedAt)}**${isOverdue ? "\n\n⚠ Sprawa została zamknięta po przekroczeniu deadline'u!" : ""}\n\nKomentarz: ${note.trim()}`
   );
+
+  // Email: do zgłaszającego (taker)
+  await emailCaseClosed({ client: caseRecord.client, topic: caseRecord.topic, takerId: caseRecord.takerId, note: note.trim(), caseId: id });
 
   return NextResponse.json(updated);
 }

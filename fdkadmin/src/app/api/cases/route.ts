@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
 import { sendTeamsAdaptiveCard } from "@/lib/teams";
-import { sendEmail, buildCaseEmailHtml } from "@/lib/email";
+import { emailNewCase } from "@/lib/email";
 import { DEPT_LABELS, CHANNEL_LABELS } from "@/lib/constants";
 
 export async function GET(request: NextRequest) {
@@ -111,34 +111,9 @@ export async function POST(request: NextRequest) {
     mentions
   );
 
-  // Email: to all department mailboxes + owner's personal email
-  const emailTo: string[] = [];
-  const deptConfig = await prisma.departmentConfig.findUnique({ where: { code: dept } });
-  if (deptConfig?.emails?.length) emailTo.push(...deptConfig.emails);
-  else if (deptConfig?.email) emailTo.push(deptConfig.email); // legacy fallback
-  if (ownerId) {
-    const ownerUser = await prisma.user.findUnique({ where: { id: ownerId } });
-    if (ownerUser?.email) emailTo.push(ownerUser.email);
-  }
-
-  if (emailTo.length > 0) {
-    await sendEmail({
-      to: emailTo,
-      subject: `Nowa sprawa: ${client} — ${topic}`,
-      html: buildCaseEmailHtml({
-        title: "Nowa sprawa w rejestrze",
-        client,
-        topic,
-        dept: deptLabel,
-        owner: ownerDisplay,
-        caseId: newCase.id,
-      }),
-    });
-    await prisma.case.update({
-      where: { id: newCase.id },
-      data: { emailNewSent: true },
-    });
-  }
+  // Email: dept emails + owner email
+  await emailNewCase({ client, topic, dept, deptLabel, ownerId: ownerId || null, takerId: session.userId, caseId: newCase.id });
+  await prisma.case.update({ where: { id: newCase.id }, data: { emailNewSent: true } });
 
   return NextResponse.json(newCase, { status: 201 });
 }

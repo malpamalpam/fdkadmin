@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth, canChangeOwner } from "@/lib/auth";
 import { sendTeamsMessage } from "@/lib/teams";
+import { emailOwnerChanged } from "@/lib/email";
 
 export async function POST(
   request: NextRequest,
@@ -30,38 +31,29 @@ export async function POST(
   }
 
   if (!canChangeOwner(session, caseRecord)) {
-    return NextResponse.json(
-      { error: "Brak uprawnień do zmiany pracownika odpowiedzialnego" },
-      { status: 403 }
-    );
+    return NextResponse.json({ error: "Brak uprawnień do zmiany pracownika odpowiedzialnego" }, { status: 403 });
   }
 
   const oldOwner = caseRecord.owner || "nieprzypisany";
 
-  // Update case and create history entry in transaction
   const [updated] = await prisma.$transaction([
     prisma.case.update({
       where: { id },
-      data: {
-        owner: newOwnerName,
-        ownerId: newOwnerId || null,
-      },
+      data: { owner: newOwnerName, ownerId: newOwnerId || null },
     }),
     prisma.caseHistory.create({
-      data: {
-        caseId: id,
-        changedBy: session.fullName,
-        field: "owner",
-        oldValue: oldOwner,
-        newValue: newOwnerName,
-      },
+      data: { caseId: id, changedBy: session.fullName, field: "owner", oldValue: oldOwner, newValue: newOwnerName },
     }),
   ]);
 
+  // Teams: kanał
   await sendTeamsMessage(
     "🔄 Zmiana odpowiedzialnego",
     `**${caseRecord.client}** — ${caseRecord.topic}\n\n**${oldOwner}** → **${newOwnerName}**\n\nZmienił/a: ${session.fullName}`
   );
+
+  // Email: do NOWEGO ownera
+  await emailOwnerChanged({ client: caseRecord.client, topic: caseRecord.topic, newOwnerId: newOwnerId || null, dept: caseRecord.dept, caseId: id });
 
   return NextResponse.json(updated);
 }

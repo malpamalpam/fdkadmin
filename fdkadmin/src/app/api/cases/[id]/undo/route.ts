@@ -47,6 +47,7 @@ export async function POST(
         status: caseRecord.previousStatus || "PRZYJETA",
         alert30Sent: false,
         alertOverSent: false,
+        email30Sent: false,
         ...(clearDeadline ? { deadline: null, deadlineSetAt: null, deadlineSetBy: null } : {}),
       };
       historyField = "undo:firstContact";
@@ -66,6 +67,7 @@ export async function POST(
         status: caseRecord.previousStatus || "KONTAKT_WSTEPNY",
         alert30Sent: false,
         alertOverSent: false,
+        email30Sent: false,
       };
       historyField = "undo:extend";
       historyOld = "przedłużono";
@@ -82,6 +84,7 @@ export async function POST(
         responseTime: null,
         status: "ZGLOSZONA",
         alertNoDeadlineSent: false,
+        alertNoContactSent: false,
       };
       historyField = "undo:accept";
       historyOld = "przyjęta";
@@ -100,6 +103,7 @@ export async function POST(
         note: null,
         alert30Sent: false,
         alertOverSent: false,
+        email30Sent: false,
       };
       historyField = "undo:close";
       historyOld = "zamknięta";
