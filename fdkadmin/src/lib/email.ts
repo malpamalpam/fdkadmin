@@ -108,14 +108,14 @@ export async function emailNewCase(opts: { client: string; topic: string; dept: 
 }
 
 export async function emailUnpicked(opts: { client: string; topic: string; dept: string; ownerId: string | null; minutes: number; type: "unpicked" | "noContact"; caseId: string }) {
-  const emails = await getOwnerOrDeptEmails(opts.ownerId, opts.dept);
-  if (emails.length === 0) return;
+  const ownerEmail = await getOwnerEmail(opts.ownerId);
+  if (!ownerEmail) return;
 
   const action = opts.type === "unpicked" ? "przyjmij zgłoszenie" : "wyślij kontakt wstępny";
   const typeLabel = opts.type === "unpicked" ? "Sprawa nieprzyjęta" : "Kontakt wstępny niewysłany";
 
   await sendEmail({
-    to: emails,
+    to: [ownerEmail],
     subject: `[FDK Rejestr] ${typeLabel}: ${opts.client}`,
     html: emailHtml(
       `Sprawa <strong>${opts.client}</strong> czeka od ${opts.minutes} min — ${action}.`,
@@ -125,11 +125,11 @@ export async function emailUnpicked(opts: { client: string; topic: string; dept:
 }
 
 export async function email30min(opts: { client: string; topic: string; dept: string; ownerId: string | null; minutes: number; deadline: string; caseId: string }) {
-  const emails = await getOwnerOrDeptEmails(opts.ownerId, opts.dept);
-  if (emails.length === 0) return;
+  const ownerEmail = await getOwnerEmail(opts.ownerId);
+  if (!ownerEmail) return;
 
   await sendEmail({
-    to: emails,
+    to: [ownerEmail],
     subject: `[FDK Rejestr] Za ${opts.minutes} min mija deadline: ${opts.client}`,
     html: emailHtml(
       `Za <strong>${opts.minutes} min</strong> mija deadline: <strong>${opts.client}</strong> — ${opts.topic}.<br>Deadline: ${opts.deadline}.`,
@@ -139,11 +139,11 @@ export async function email30min(opts: { client: string; topic: string; dept: st
 }
 
 export async function emailOverdue(opts: { client: string; topic: string; dept: string; ownerId: string | null; deadline: string; caseId: string }) {
-  const emails = await getOwnerOrDeptEmails(opts.ownerId, opts.dept);
-  if (emails.length === 0) return;
+  const ownerEmail = await getOwnerEmail(opts.ownerId);
+  if (!ownerEmail) return;
 
   await sendEmail({
-    to: emails,
+    to: [ownerEmail],
     subject: `[FDK Rejestr] DEADLINE PRZEKROCZONY: ${opts.client}`,
     html: emailHtml(
       `<strong style="color:#dc2626">DEADLINE PRZEKROCZONY</strong>: <strong>${opts.client}</strong> — ${opts.topic}.<br>Skontaktuj się z beneficjentem natychmiast.`,
@@ -153,11 +153,11 @@ export async function emailOverdue(opts: { client: string; topic: string; dept: 
 }
 
 export async function emailOwnerChanged(opts: { client: string; topic: string; newOwnerId: string | null; dept: string; caseId: string }) {
-  const emails = await getOwnerOrDeptEmails(opts.newOwnerId, opts.dept);
-  if (emails.length === 0) return;
+  const newOwnerEmail = await getOwnerEmail(opts.newOwnerId);
+  if (!newOwnerEmail) return;
 
   await sendEmail({
-    to: emails,
+    to: [newOwnerEmail],
     subject: `[FDK Rejestr] Przypisano sprawę: ${opts.client}`,
     html: emailHtml(
       `Przypisano Ci sprawę: <strong>${opts.client}</strong> — ${opts.topic}.<br>Przyjmij zgłoszenie, aby potwierdzić.`,
