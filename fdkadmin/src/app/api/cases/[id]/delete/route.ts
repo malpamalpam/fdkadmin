@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth, isAdmin } from "@/lib/auth";
+import { sendTeamsMessage } from "@/lib/teams";
+import { emailCaseDeleted } from "@/lib/email";
 
 export async function DELETE(
   request: NextRequest,
@@ -27,6 +29,24 @@ export async function DELETE(
     prisma.caseHistory.deleteMany({ where: { caseId: id } }),
     prisma.case.delete({ where: { id } }),
   ]);
+
+  // Notifications (fire-and-forget — deletion already succeeded)
+  const deletedAt = new Date();
+
+  sendTeamsMessage(
+    "🗑 Sprawa usunięta",
+    `**${caseRecord.client}** — ${caseRecord.topic}\n\nUsunął/ęła: **${session.fullName}**`
+  ).catch((err) => console.error("[Teams] Delete notification failed:", err));
+
+  emailCaseDeleted({
+    client: caseRecord.client,
+    topic: caseRecord.topic,
+    takerId: caseRecord.takerId,
+    ownerId: caseRecord.ownerId,
+    deletedBy: session.fullName,
+    deletedAt,
+    caseId: id,
+  }).catch((err) => console.error("[Email] Delete notification failed:", err));
 
   return NextResponse.json({ success: true });
 }

@@ -53,7 +53,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="bg-white rounded-xl shadow-lg p-8 space-y-6">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900">FDK Rejestr</h1>
+            <h1 className="text-2xl font-bold text-gray-900">FDK – Rejestr spraw</h1>
             <p className="text-sm text-gray-500 mt-1">
               Fundacja Firma Dla Każdego
             </p>

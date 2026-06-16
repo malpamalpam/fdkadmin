@@ -96,7 +96,7 @@ export default function PanelPage() {
     const overdue = openCases.filter((c) => c.deadline && new Date(c.deadline) < new Date()).length;
     const pending = openCases.filter((c) => c.status === "ZGLOSZONA" || c.status === "OCZEKUJE_NA_DEADLINE").length;
     const alerts = overdue + pending;
-    document.title = alerts > 0 ? `(${alerts}⚠) FDK Rejestr` : "FDK Rejestr zgłoszeń";
+    document.title = alerts > 0 ? `(${alerts}⚠) FDK – Rejestr spraw` : "FDK – Rejestr spraw";
   }, [openCases]);
 
   if (loading) {

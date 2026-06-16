@@ -54,7 +54,7 @@ export default function PanelLayout({
           <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-6">
               <Link href="/panel" className="font-bold text-lg text-blue-600">
-                FDK Rejestr
+                FDK – Rejestr spraw
               </Link>
               <nav className="hidden sm:flex gap-1">
                 {navItems.map((item) => (

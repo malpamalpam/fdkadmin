@@ -54,7 +54,7 @@ function emailHtml(message: string, caseId: string): string {
 <div style="font-family:sans-serif;max-width:600px;padding:16px">
   <p style="font-size:14px;line-height:1.6">${message}</p>
   <p style="margin-top:16px"><a href="${link}" style="background:#1d4ed8;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-size:14px">Otwórz sprawę</a></p>
-  <p style="margin-top:24px;font-size:11px;color:#999">FDK Rejestr zgłoszeń — Fundacja Firma Dla Każdego</p>
+  <p style="margin-top:24px;font-size:11px;color:#999">FDK – Rejestr spraw — Fundacja Firma Dla Każdego</p>
 </div>`.trim();
 }
 
@@ -99,7 +99,7 @@ export async function emailNewCase(opts: { client: string; topic: string; dept: 
 
   await sendEmail({
     to: allEmails,
-    subject: `[FDK Rejestr] Nowe zgłoszenie: ${opts.client}`,
+    subject: `[FDK – Rejestr spraw] Nowe zgłoszenie: ${opts.client}`,
     html: emailHtml(
       `Nowa sprawa: <strong>${opts.client}</strong> — ${opts.topic} (${opts.deptLabel}).<br>Przyjmij zgłoszenie i wyznacz czas reakcji.`,
       opts.caseId
@@ -116,7 +116,7 @@ export async function emailUnpicked(opts: { client: string; topic: string; dept:
 
   await sendEmail({
     to: [ownerEmail],
-    subject: `[FDK Rejestr] ${typeLabel}: ${opts.client}`,
+    subject: `[FDK – Rejestr spraw] ${typeLabel}: ${opts.client}`,
     html: emailHtml(
       `Sprawa <strong>${opts.client}</strong> czeka od ${opts.minutes} min — ${action}.`,
       opts.caseId
@@ -130,7 +130,7 @@ export async function email30min(opts: { client: string; topic: string; dept: st
 
   await sendEmail({
     to: [ownerEmail],
-    subject: `[FDK Rejestr] Za ${opts.minutes} min mija deadline: ${opts.client}`,
+    subject: `[FDK – Rejestr spraw] Za ${opts.minutes} min mija deadline: ${opts.client}`,
     html: emailHtml(
       `Za <strong>${opts.minutes} min</strong> mija deadline: <strong>${opts.client}</strong> — ${opts.topic}.<br>Deadline: ${opts.deadline}.`,
       opts.caseId
@@ -144,7 +144,7 @@ export async function emailOverdue(opts: { client: string; topic: string; dept: 
 
   await sendEmail({
     to: [ownerEmail],
-    subject: `[FDK Rejestr] DEADLINE PRZEKROCZONY: ${opts.client}`,
+    subject: `[FDK – Rejestr spraw] DEADLINE PRZEKROCZONY: ${opts.client}`,
     html: emailHtml(
       `<strong style="color:#dc2626">DEADLINE PRZEKROCZONY</strong>: <strong>${opts.client}</strong> — ${opts.topic}.<br>Skontaktuj się z beneficjentem natychmiast.`,
       opts.caseId
@@ -158,7 +158,7 @@ export async function emailOwnerChanged(opts: { client: string; topic: string; n
 
   await sendEmail({
     to: [newOwnerEmail],
-    subject: `[FDK Rejestr] Przypisano sprawę: ${opts.client}`,
+    subject: `[FDK – Rejestr spraw] Przypisano sprawę: ${opts.client}`,
     html: emailHtml(
       `Przypisano Ci sprawę: <strong>${opts.client}</strong> — ${opts.topic}.<br>Przyjmij zgłoszenie, aby potwierdzić.`,
       opts.caseId
@@ -172,9 +172,32 @@ export async function emailCaseClosed(opts: { client: string; topic: string; tak
 
   await sendEmail({
     to: [takerEmail],
-    subject: `[FDK Rejestr] Sprawa zamknięta: ${opts.client}`,
+    subject: `[FDK – Rejestr spraw] Sprawa zamknięta: ${opts.client}`,
     html: emailHtml(
       `Twoje zgłoszenie zamknięte: <strong>${opts.client}</strong> — ${opts.topic}.<br>Rozwiązanie: ${opts.note}`,
+      opts.caseId
+    ),
+  });
+}
+
+export async function emailCaseDeleted(opts: { client: string; topic: string; takerId: string | null; ownerId: string | null; deletedBy: string; deletedAt: Date; caseId: string }) {
+  const takerEmail = await getTakerEmail(opts.takerId);
+  const ownerEmail = await getOwnerEmail(opts.ownerId);
+
+  // Deduplicate: if taker = owner, send one email
+  const recipients = Array.from(new Set([takerEmail, ownerEmail].filter(Boolean) as string[]));
+  if (recipients.length === 0) {
+    console.log("[Email] Usunięcie sprawy — brak odbiorców, pomijam:", opts.caseId);
+    return;
+  }
+
+  const dateStr = opts.deletedAt.toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" });
+
+  await sendEmail({
+    to: recipients,
+    subject: `[FDK – Rejestr spraw] Sprawa usunięta: ${opts.client}`,
+    html: emailHtml(
+      `Sprawa <strong>${opts.client}</strong> — ${opts.topic} została <strong>usunięta</strong>.<br>Usunął/ęła: ${opts.deletedBy}<br>Data: ${dateStr}`,
       opts.caseId
     ),
   });
