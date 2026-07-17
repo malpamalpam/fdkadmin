@@ -32,6 +32,8 @@ export default function PanelLayout({
   const navItems = [
     { href: "/panel", label: "Panel" },
     { href: "/panel/nowe", label: "+ Nowe zgłoszenie" },
+    { href: "/panel/pzk", label: "PZK" },
+    { href: "/panel/pzk-tutlo", label: "PZK Tutlo" },
     { href: "/panel/profil", label: "Mój profil" },
   ];
 

@@ -60,6 +60,19 @@ enum Role {
   EMPLOYEE
 }
 
+enum PzkPanel {
+  PZK
+  PZK_TUTLO
+}
+
+enum PzkClientType {
+  STANDARD_KADRY
+  OBCOKRAJOWIEC_HR
+  OBCOKRAJOWIEC_HR_ENG
+  TUTLO_PL
+  TUTLO_OBCOKRAJOWIEC
+}
+
 model User {
   id             String     @id @default(uuid())
   login          String     @unique
@@ -77,6 +90,7 @@ model User {
 
   takenCases     Case[]     @relation("CaseTaker")
   ownedCases     Case[]     @relation("CaseOwner")
+  pzkCases       PzkCase[]  @relation("PzkCreatedBy")
 
   @@index([login])
 }
@@ -162,4 +176,79 @@ model Worker {
   name      String   @unique
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
+}
+
+// ─── Panel Zamknięcia Klienta ───────────────────────────────────────────────
+
+model PzkCase {
+  id                  String        @id @default(uuid())
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  panel               PzkPanel
+
+  // Module 1 – Beneficjent (key columns for listing/filtering)
+  lastName            String
+  firstNames          String
+  benefEmail          String?
+  clientType          PzkClientType
+  responsibleWorker   String?       // auto from clientType, editable
+
+  // Key date driving automations
+  cooperationEndsAt   DateTime?
+  withdrawnFromNotice Boolean       @default(false)  // "Rezygnacja z wypowiedzenia"
+
+  // Creator
+  createdById         String
+  createdBy           User          @relation("PzkCreatedBy", fields: [createdById], references: [id])
+  createdByName       String        // snapshot for display
+
+  // Module data (JSON blobs per spec)
+  mod2Admin           Json?         // Module 2: Administration (2A, 2B, 2C)
+  mod3Kadry           Json?         // Module 3: Kadry (3A, 3B)
+  mod4Ksieg           Json?         // Module 4: Księgowość (4A, 4B)
+  mod5Legal           Json?         // Module 5: Legalizacja (5A, 5B)
+  mod6Platnosci       Json?         // Module 6: Płatności (6A, 6B)
+  mod7Umowy           Json?         // Module 7: Umowy (7A B2B, 7B Najem)
+  mod8Inne            Json?         // Module 8: Inne (8A Bramki, 8B Domena)
+
+  // Manual "close" flags per module/sub-module
+  mod1Closed          Boolean       @default(false)
+  mod2Closed          Boolean       @default(false)
+  mod3AClosed         Boolean       @default(false)
+  mod3BClosed         Boolean       @default(false)
+  mod4Closed          Boolean       @default(false)
+  mod5Closed          Boolean       @default(false)
+  mod6Closed          Boolean       @default(false)
+  mod7AClosed         Boolean       @default(false)
+  mod7BClosed         Boolean       @default(false)
+  mod8Closed          Boolean       @default(false)
+
+  // Notification send tracking
+  emailInitialSent    Boolean       @default(false)
+  emailMid15Sent      Boolean       @default(false)
+  emailFinal28Sent    Boolean       @default(false)
+
+  // Initial deadline info (set at "Wyślij sprawę")
+  initialDeadline     DateTime?
+  isUrgent            Boolean       @default(false)
+  urgentLabel         String?       // "1h" | "2h" | "3h" | "1 dzień"
+
+  history             PzkHistory[]
+
+  @@index([panel])
+  @@index([cooperationEndsAt])
+  @@index([createdAt])
+}
+
+model PzkHistory {
+  id        String   @id @default(uuid())
+  caseId    String
+  case      PzkCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  changedBy String
+  changedAt DateTime @default(now())
+  field     String
+  oldValue  String?
+  newValue  String?
+
+  @@index([caseId])
 }
