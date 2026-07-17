@@ -231,6 +231,102 @@ export function canEditModule(userDept: string | null, userRole: string, moduleK
   return allowed.includes(userDept);
 }
 
+// ─── Braki collector for mail generator ──────────────────────────────────────
+
+export function collectBraki(
+  c: PzkCase,
+  userDept: string | null,
+  userRole: string
+): string[] {
+  const braki: string[] = [];
+  const isAdminLike = userRole === "ADMIN" || userRole === "SUPERVISOR";
+
+  function addYR(label: string, value: string | undefined) {
+    if (!value) return;
+    const col = getFieldColor(value);
+    if (col === "yellow" || col === "red") braki.push(`${label}: ${value}`);
+  }
+
+  function addAmount(label: string, amount: string | undefined) {
+    if (!amount || amount === "Nie dotyczy") return;
+    const n = parseFloat(amount.replace(",", "."));
+    if (!isNaN(n) && n > 0) braki.push(`${label}: ${amount} zł`);
+  }
+
+  // mod2Admin
+  if (isAdminLike || canEditModule(userDept, userRole, "mod2")) {
+    const m = (c.mod2Admin || {}) as Mod2Admin;
+    addYR("Wypowiedzenie", m.wypowiedzenie);
+    addYR("PESEL", m.pesel);
+    addYR("Dane kontaktowe", m.daneKontaktowe);
+    addYR("Umowa", m.umowa);
+    addYR("RODO", m.rodo);
+    addYR("Oświadczenie twórcy", m.oswiadczenieTworcy);
+    addYR("KRK", m.krk);
+    addYR("Oświadczenie elektroniczne", m.oswiadczenieElektroniczne);
+    addYR("Benefit System", m.benefitSystem);
+    addYR("Konto mBank", m.kontoMBank);
+    addYR("Konto CRM", m.kontoCRM);
+    addAmount("Bieżące środki mBank", m.biezaceSwrodkiMBank);
+  }
+
+  // mod3Kadry
+  if (isAdminLike || canEditModule(userDept, userRole, "mod3")) {
+    const m = (c.mod3Kadry || {}) as Mod3Kadry;
+    if (m.brakiKadryDok && m.brakiKadryDok !== "Komplet")
+      braki.push(`Braki HR/Kadry – dokumenty: ${m.brakiKadryDok}`);
+    addAmount("Braki HR/Kadry – płatności", m.brakiKadryPlatnosci);
+    addYR("Status opłat kadrowych", m.brakiKadryPlatnosciStatus);
+    if (m.legitymacja) addYR("Legitymacja", m.legitymacja);
+    if (m.brakiUZPlatnosci !== "Nie dotyczy") addAmount("Braki UZ – płatności", m.brakiUZPlatnosci);
+    addYR("Status opłat UZ", m.brakiUZPlatnosciStatus);
+    addYR("ZWUA", m.zwua);
+  }
+
+  // mod4Ksieg
+  if (isAdminLike || canEditModule(userDept, userRole, "mod4")) {
+    const m = (c.mod4Ksieg || {}) as Mod4Ksieg;
+    if (m.brakiKsiegDok && m.brakiKsiegDok !== "Komplet")
+      braki.push(`Braki księgowość – dokumenty: ${m.brakiKsiegDok}`);
+    addAmount("Braki księgowość – płatności", m.brakiKsiegPlatnosci);
+    addYR("Status opłat księgowych", m.brakiKsiegPlatnosciStatus);
+  }
+
+  // mod5Legal
+  if (isAdminLike || canEditModule(userDept, userRole, "mod5")) {
+    const m = (c.mod5Legal || {}) as Mod5Legal;
+    if (m.brakiLegalDok && m.brakiLegalDok !== "Komplet")
+      braki.push(`Braki legalizacja – dokumenty: ${m.brakiLegalDok}`);
+    addAmount("Braki legalizacja – płatności", m.brakiLegalPlatnosci);
+    addYR("Status opłat legalizacji", m.brakiLegalPlatnosciStatus);
+  }
+
+  // mod6Platnosci
+  if (isAdminLike || canEditModule(userDept, userRole, "mod6")) {
+    const m = (c.mod6Platnosci || {}) as Mod6Platnosci;
+    addAmount("Opłaty za współpracę", m.oplatyWspolpraca);
+    addYR("Status opłat za współpracę", m.oplatyWspolpracaStatus);
+    if (m.oplatyBenefit !== "Nie dotyczy") addAmount("Opłaty Benefit", m.oplatyBenefit);
+    if (m.oplatyBenefitStatus !== "Nie dotyczy") addYR("Status opłat Benefit", m.oplatyBenefitStatus);
+  }
+
+  // mod7Umowy
+  if (isAdminLike || canEditModule(userDept, userRole, "mod7")) {
+    const m = (c.mod7Umowy || {}) as Mod7Umowy;
+    if (m.b2bKontrahent !== "Nie dotyczy") addYR("Wypowiedzenie B2B", m.b2bWypowiedzenie);
+    if (m.najmUmowa !== "Nie dotyczy") addYR("Wypowiedzenie najmu", m.najmWypowiedzenie);
+  }
+
+  // mod8Inne
+  if (isAdminLike || canEditModule(userDept, userRole, "mod8")) {
+    const m = (c.mod8Inne || {}) as Mod8Inne;
+    if (m.bramkiRodzaj !== "Nie dotyczy") addYR("Status bramki płatności", m.bramkiStatus);
+    if (m.domenaRodzaj !== "Nie dotyczy") addYR("Status domena/hosting", m.domenaStatus);
+  }
+
+  return braki;
+}
+
 // ─── Status color helpers for amount fields ───────────────────────────────────
 
 export function getAmountColor(

@@ -6,6 +6,7 @@ import {
   PzkCase, PzkClientType, Mod2Admin, Mod3Kadry, Mod4Ksieg, Mod5Legal,
   Mod6Platnosci, Mod7Umowy, Mod8Inne,
   PZK_CLIENT_TYPE_LABELS, getFieldColor, getAmountColor, canEditModule, FieldColor,
+  collectBraki,
 } from "@/lib/pzk-types";
 import { useUser } from "@/lib/user-context";
 
@@ -194,6 +195,12 @@ export default function PzkCasePage() {
   const [mod8, setMod8] = useState<Mod8Inne>({});
 
   const [savingMod, setSavingMod] = useState<string | null>(null);
+  const [editingDate, setEditingDate] = useState(false);
+  const [dateValue, setDateValue] = useState("");
+  const [mailModal, setMailModal] = useState(false);
+  const [mailText, setMailText] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleteSaving, setDeleteSaving] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/pzk/${id}`);
@@ -211,6 +218,10 @@ export default function PzkCasePage() {
   }, [id, router]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (c?.cooperationEndsAt) setDateValue(c.cooperationEndsAt.substring(0, 10));
+  }, [c?.cooperationEndsAt]);
 
   async function saveModule(moduleKey: string, data: unknown) {
     setSavingMod(moduleKey);
@@ -265,11 +276,46 @@ export default function PzkCasePage() {
     setShowHistory(true);
   }
 
+  async function handleDateSave() {
+    const res = await fetch(`/api/pzk/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cooperationEndsAt: dateValue || null }),
+    });
+    if (res.ok) { setC(await res.json()); setEditingDate(false); }
+  }
+
+  async function toggleRezygnacja() {
+    const res = await fetch(`/api/pzk/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ withdrawnFromNotice: !c!.withdrawnFromNotice }),
+    });
+    if (res.ok) setC(await res.json());
+  }
+
+  async function handleDelete() {
+    setDeleteSaving(true);
+    const res = await fetch(`/api/pzk/${id}`, { method: "DELETE" });
+    if (res.ok) router.push(panelPath);
+    else setDeleteSaving(false);
+  }
+
+  function openMailModal() {
+    const collected = collectBraki(c!, user?.dept ?? null, user?.role ?? "EMPLOYEE");
+    const brakiStr = collected.length > 0 ? collected.join(", ") : "[uzupełnij braki]";
+    const endDate = c!.cooperationEndsAt
+      ? new Date(c!.cooperationEndsAt).toLocaleDateString("pl-PL") : "[data]";
+    setMailText(
+      `Temat: Uzupełnienie braków przed końcem współpracy\n\nDzień dobry,\n\nW związku ze zbliżającym się końcem naszej współpracy (${endDate}), proszę o uzupełnienie braków: ${brakiStr}.\n\nProszę o dosłanie braków w ciągu [UZUPEŁNIJ TERMIN].\n\nW razie wątpliwości zapraszam do kontaktu, dziękuję.`
+    );
+    setMailModal(true);
+  }
+
   if (loading || !c) {
     return <div className="py-10 text-center text-gray-500">Ładowanie...</div>;
   }
 
   const fullName = `${c.firstNames} ${c.lastName}`;
+  const isAdminOrSupervisor = user?.role === "ADMIN" || user?.role === "SUPERVISOR";
   const canAdmin = canEditModule(user?.dept ?? null, user?.role ?? "EMPLOYEE", "mod2");
   const canKadry = canEditModule(user?.dept ?? null, user?.role ?? "EMPLOYEE", "mod3");
   const canKsieg = canEditModule(user?.dept ?? null, user?.role ?? "EMPLOYEE", "mod4");
@@ -289,26 +335,56 @@ export default function PzkCasePage() {
             ← {c.panel === "PZK_TUTLO" ? "PZK Tutlo" : "PZK"}
           </button>
           <h1 className="text-xl font-bold text-gray-900">{fullName}</h1>
-          <div className="flex flex-wrap gap-3 text-sm text-gray-500 mt-1">
+          <div className="flex flex-wrap gap-3 text-sm text-gray-500 mt-1 items-center">
             <span>{PZK_CLIENT_TYPE_LABELS[c.clientType]}</span>
             {c.benefEmail && <span>{c.benefEmail}</span>}
-            {c.cooperationEndsAt && (
-              <span>Koniec: <strong>{new Date(c.cooperationEndsAt).toLocaleDateString("pl-PL")}</strong></span>
+            {/* Editable date */}
+            {editingDate ? (
+              <span className="flex items-center gap-1">
+                <input
+                  type="date"
+                  value={dateValue}
+                  onChange={(e) => setDateValue(e.target.value)}
+                  className="border rounded px-2 py-0.5 text-sm text-gray-800"
+                />
+                <button onClick={handleDateSave} className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded">Zapisz</button>
+                <button onClick={() => setEditingDate(false)} className="text-xs text-gray-400">Anuluj</button>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1">
+                Koniec: <strong>{c.cooperationEndsAt ? new Date(c.cooperationEndsAt).toLocaleDateString("pl-PL") : "—"}</strong>
+                {canAdmin && (
+                  <button onClick={() => setEditingDate(true)} title="Edytuj datę" className="text-gray-400 hover:text-blue-600 ml-0.5 leading-none">✎</button>
+                )}
+              </span>
             )}
             {c.withdrawnFromNotice && (
-              <span className="text-orange-600 font-medium">Rezygnacja z wypowiedzenia</span>
+              <span className="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full font-medium">Rezygnacja z wypowiedzenia</span>
             )}
           </div>
         </div>
 
-        {/* Send button */}
-        <div className="flex-shrink-0">
+        {/* Action buttons */}
+        <div className="flex-shrink-0 flex flex-col gap-2 items-end">
           {!c.withdrawnFromNotice && (
             <button
               onClick={() => setSendModal(true)}
               className={`px-4 py-2 rounded-lg text-sm font-medium ${c.emailInitialSent ? "bg-gray-100 text-gray-600 hover:bg-gray-200" : "bg-green-600 text-white hover:bg-green-700"}`}
             >
               {c.emailInitialSent ? "Ponów wysyłkę" : "Wyślij sprawę"}
+            </button>
+          )}
+          <button onClick={openMailModal} className="text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 px-3 py-1.5 rounded-lg border">
+            Mail do beneficjenta
+          </button>
+          {!c.withdrawnFromNotice && canAdmin && (
+            <button onClick={toggleRezygnacja} className="text-xs text-red-600 hover:text-red-800 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50">
+              Rezygnacja z wypowiedzenia
+            </button>
+          )}
+          {c.withdrawnFromNotice && isAdminOrSupervisor && (
+            <button onClick={toggleRezygnacja} className="text-xs text-gray-600 hover:text-gray-900 border px-3 py-1.5 rounded-lg hover:bg-gray-50">
+              Anuluj rezygnację
             </button>
           )}
         </div>
@@ -555,6 +631,29 @@ export default function PzkCasePage() {
         )}
       </div>
 
+      {/* Delete button */}
+      {isAdminOrSupervisor && (
+        <div className="mt-8 pt-4 border-t border-gray-200">
+          {!deleteConfirm ? (
+            <button onClick={() => setDeleteConfirm(true)} className="text-sm text-red-500 hover:text-red-700">
+              Usuń sprawę
+            </button>
+          ) : (
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-sm text-red-600">Na pewno usunąć tę sprawę? Operacja nieodwracalna.</span>
+              <button
+                onClick={handleDelete}
+                disabled={deleteSaving}
+                className="text-sm bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleteSaving ? "Usuwanie..." : "Tak, usuń"}
+              </button>
+              <button onClick={() => setDeleteConfirm(false)} className="text-sm text-gray-500">Anuluj</button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Send modal */}
       {sendModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
@@ -588,6 +687,33 @@ export default function PzkCasePage() {
                 {sendSaving ? "Wysyłanie..." : "Wyślij powiadomienia"}
               </button>
               <button onClick={() => { setSendModal(false); setSendResult(null); }} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
+                Zamknij
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mail modal */}
+      {mailModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg mx-4">
+            <h2 className="font-bold text-gray-900 mb-1">Mail do beneficjenta</h2>
+            <p className="text-xs text-gray-500 mb-3">Treść edytowalna — zaznaczone braki ze statusem żółtym/czerwonym.</p>
+            <textarea
+              value={mailText}
+              onChange={(e) => setMailText(e.target.value)}
+              rows={12}
+              className="w-full border rounded-lg p-3 text-sm font-mono resize-y"
+            />
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={() => { navigator.clipboard.writeText(mailText); }}
+                className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
+              >
+                Kopiuj do schowka
+              </button>
+              <button onClick={() => setMailModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
                 Zamknij
               </button>
             </div>

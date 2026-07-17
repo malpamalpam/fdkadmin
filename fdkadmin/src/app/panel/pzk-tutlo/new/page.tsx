@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PZK_CLIENT_TYPE_LABELS, PzkClientType } from "@/lib/pzk-types";
 
-// PZK Tutlo only uses Tutlo client types
 const CLIENT_TYPES: PzkClientType[] = ["TUTLO_PL", "TUTLO_OBCOKRAJOWIEC"];
 
 export default function NewPzkTutloPage() {
@@ -25,8 +24,7 @@ export default function NewPzkTutloPage() {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit() {
     if (!form.lastName.trim() || !form.firstNames.trim()) {
       setError("Nazwisko i imiona są wymagane.");
       return;
@@ -58,7 +56,7 @@ export default function NewPzkTutloPage() {
         <p className="text-sm text-gray-500 mt-0.5">Klienci Tutlo — obsługa: Przemek</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white border rounded-xl p-6 space-y-4">
+      <div className="bg-white border rounded-xl p-6 space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Nazwisko *</label>
           <input
@@ -66,7 +64,6 @@ export default function NewPzkTutloPage() {
             value={form.lastName}
             onChange={(e) => set("lastName", e.target.value)}
             placeholder="Kowalski"
-            required
           />
         </div>
         <div>
@@ -76,7 +73,6 @@ export default function NewPzkTutloPage() {
             value={form.firstNames}
             onChange={(e) => set("firstNames", e.target.value)}
             placeholder="Jan Piotr"
-            required
           />
         </div>
         <div>
@@ -124,7 +120,8 @@ export default function NewPzkTutloPage() {
 
         <div className="flex gap-3 pt-2">
           <button
-            type="submit"
+            type="button"
+            onClick={handleSubmit}
             disabled={saving}
             className="bg-purple-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50"
           >
@@ -138,7 +135,7 @@ export default function NewPzkTutloPage() {
             Anuluj
           </button>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

@@ -49,6 +49,7 @@ export default function PzkTutloPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [monthFilter, setMonthFilter] = useState("");
+  const [showWithdrawn, setShowWithdrawn] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,12 +57,13 @@ export default function PzkTutloPage() {
       const params = new URLSearchParams({ panel: "PZK_TUTLO" });
       if (monthFilter) params.set("month", monthFilter);
       if (search) params.set("q", search);
+      if (showWithdrawn) params.set("withdrawn", "true");
       const res = await fetch(`/api/pzk?${params}`);
       if (res.ok) setCases(await res.json());
     } finally {
       setLoading(false);
     }
-  }, [monthFilter, search]);
+  }, [monthFilter, search, showWithdrawn]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -85,7 +87,7 @@ export default function PzkTutloPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-4 bg-white rounded-lg border p-3">
+      <div className="flex flex-wrap gap-3 mb-4 bg-white rounded-lg border p-3 items-center">
         <input
           className="border rounded px-3 py-1.5 text-sm w-52"
           placeholder="Szukaj nazwiska..."
@@ -105,6 +107,15 @@ export default function PzkTutloPage() {
             </option>
           ))}
         </select>
+        <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showWithdrawn}
+            onChange={(e) => setShowWithdrawn(e.target.checked)}
+            className="rounded"
+          />
+          Pokaż rezygnacje
+        </label>
       </div>
 
       {loading ? (
@@ -121,16 +132,16 @@ export default function PzkTutloPage() {
               <Link
                 key={c.id}
                 href={`/panel/pzk-tutlo/${c.id}`}
-                className="block bg-white border rounded-lg px-4 py-3 hover:border-purple-400 transition-colors"
+                className={`block bg-white border rounded-lg px-4 py-3 hover:border-purple-400 transition-colors ${c.withdrawnFromNotice ? "opacity-60" : ""}`}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-gray-900">{c.firstNames} {c.lastName}</span>
                       {c.withdrawnFromNotice && (
-                        <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">Rezygnacja z wypowiedzenia</span>
+                        <span className="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full">Rezygnacja z wypowiedzenia</span>
                       )}
-                      {allClosed && (
+                      {allClosed && !c.withdrawnFromNotice && (
                         <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">Zamknięta</span>
                       )}
                     </div>
@@ -141,15 +152,19 @@ export default function PzkTutloPage() {
                     </div>
                   </div>
                   <div className="flex-shrink-0 text-right">
-                    <div className="text-sm font-medium text-gray-700">{closed}/{total} modułów</div>
-                    <div className="w-24 h-1.5 bg-gray-200 rounded-full mt-1">
-                      <div
-                        className={`h-1.5 rounded-full transition-all ${allClosed ? "bg-green-500" : "bg-purple-500"}`}
-                        style={{ width: `${(closed / total) * 100}%` }}
-                      />
-                    </div>
-                    {!c.emailInitialSent && (
-                      <div className="text-xs text-orange-600 mt-1">Nie wysłano</div>
+                    {!c.withdrawnFromNotice && (
+                      <>
+                        <div className="text-sm font-medium text-gray-700">{closed}/{total} modułów</div>
+                        <div className="w-24 h-1.5 bg-gray-200 rounded-full mt-1">
+                          <div
+                            className={`h-1.5 rounded-full transition-all ${allClosed ? "bg-green-500" : "bg-purple-500"}`}
+                            style={{ width: `${(closed / total) * 100}%` }}
+                          />
+                        </div>
+                        {!c.emailInitialSent && (
+                          <div className="text-xs text-orange-600 mt-1">Nie wysłano</div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

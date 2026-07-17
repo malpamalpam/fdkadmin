@@ -12,8 +12,11 @@ export async function GET(request: NextRequest) {
   const month = url.searchParams.get("month"); // "YYYY-MM"
   const search = url.searchParams.get("q");
 
+  const showWithdrawn = url.searchParams.get("withdrawn") === "true";
+
   const where: Record<string, unknown> = {};
   if (panel) where.panel = panel;
+  if (!showWithdrawn) where.withdrawnFromNotice = false;
 
   if (month) {
     const [year, mon] = month.split("-").map(Number);

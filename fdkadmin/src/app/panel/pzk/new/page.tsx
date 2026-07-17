@@ -4,12 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PZK_CLIENT_TYPE_LABELS, PzkClientType } from "@/lib/pzk-types";
 
+// PZK (non-Tutlo) only shows non-Tutlo client types
 const CLIENT_TYPES: PzkClientType[] = [
   "STANDARD_KADRY",
   "OBCOKRAJOWIEC_HR",
   "OBCOKRAJOWIEC_HR_ENG",
-  "TUTLO_PL",
-  "TUTLO_OBCOKRAJOWIEC",
 ];
 
 export default function NewPzkPage() {
@@ -30,8 +29,7 @@ export default function NewPzkPage() {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit() {
     if (!form.lastName.trim() || !form.firstNames.trim()) {
       setError("Nazwisko i imiona są wymagane.");
       return;
@@ -63,7 +61,7 @@ export default function NewPzkPage() {
         <p className="text-sm text-gray-500 mt-0.5">Klienci nie-Tutlo</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white border rounded-xl p-6 space-y-4">
+      <div className="bg-white border rounded-xl p-6 space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Nazwisko *</label>
           <input
@@ -71,7 +69,6 @@ export default function NewPzkPage() {
             value={form.lastName}
             onChange={(e) => set("lastName", e.target.value)}
             placeholder="Kowalski"
-            required
           />
         </div>
         <div>
@@ -81,7 +78,6 @@ export default function NewPzkPage() {
             value={form.firstNames}
             onChange={(e) => set("firstNames", e.target.value)}
             placeholder="Jan Piotr"
-            required
           />
         </div>
         <div>
@@ -129,7 +125,8 @@ export default function NewPzkPage() {
 
         <div className="flex gap-3 pt-2">
           <button
-            type="submit"
+            type="button"
+            onClick={handleSubmit}
             disabled={saving}
             className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
           >
@@ -143,7 +140,7 @@ export default function NewPzkPage() {
             Anuluj
           </button>
         </div>
-      </form>
+      </div>
     </div>
   );
 }
