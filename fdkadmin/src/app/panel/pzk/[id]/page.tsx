@@ -248,6 +248,29 @@ function ModuleCard({
   );
 }
 
+// ─── Sub-module header with close toggle ──────────────────────────────────────
+
+function SubModuleHeader({
+  title, closed, canEdit, onToggle,
+}: {
+  title: string; closed: boolean; canEdit: boolean; onToggle: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between mt-3 mb-2">
+      <div className="flex items-center gap-2">
+        {closed && <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />}
+        <p className={`text-xs font-semibold uppercase ${closed ? "text-green-600" : "text-gray-400"}`}>{title}</p>
+        {closed && <span className="text-xs text-green-700 bg-green-100 px-1 py-0 rounded">Zamknięty</span>}
+      </div>
+      {canEdit && (
+        <button onClick={onToggle} className={`text-xs px-2 py-0.5 rounded border ${closed ? "border-gray-300 text-gray-500 hover:bg-gray-100" : "border-green-400 text-green-600 hover:bg-green-50"}`}>
+          {closed ? "Otwórz" : "Zamknij"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ─── Option lists ─────────────────────────────────────────────────────────────
 
 const DOC_STATUS = ["Oryginał", "Skan", "Do uzupełnienia", "Nie uzyskano", "Nie dotyczy"];
@@ -647,12 +670,12 @@ export default function PzkCasePage() {
           onSave={() => saveModule("mod2Admin", mod2)}
           saving={savingMod === "mod2Admin"}
         >
-          <p className="text-xs font-semibold text-gray-400 uppercase mb-2">2A — Informacje o współpracy</p>
+          <SubModuleHeader title="2A — Informacje o współpracy" closed={c.mod2AClosed} canEdit={canAdmin} onToggle={() => toggleModuleClosed("mod2AClosed", c.mod2AClosed)} />
           <TextField label="Skąd informacja o wypowiedzeniu" value={mod2.infoSource} onChange={(v) => setMod2(d => ({ ...d, infoSource: v }))} disabled={!canAdmin} />
           <DropField label="Wypowiedzenie" value={mod2.wypowiedzenie} options={WYP_STATUS} onChange={(v) => setMod2(d => ({ ...d, wypowiedzenie: v as never }))} disabled={!canAdmin} />
           <TextField label="Data startu / CRM" value={mod2.dataStartuCRM} onChange={(v) => setMod2(d => ({ ...d, dataStartuCRM: v }))} disabled={!canAdmin} type="date" />
 
-          <p className="text-xs font-semibold text-gray-400 uppercase mt-3 mb-2">2B — Dokumenty wstępne</p>
+          <SubModuleHeader title="2B — Dokumenty wstępne" closed={c.mod2BClosed} canEdit={canAdmin} onToggle={() => toggleModuleClosed("mod2BClosed", c.mod2BClosed)} />
           <DropFieldWithCustom label="PESEL" value={mod2.pesel} customText={mod2.peselCustomText} customColor={mod2.peselCustomColor} options={PESEL_STATUS} onChange={(v) => setMod2(d => ({ ...d, pesel: v }))} onCustomTextChange={(v) => setMod2(d => ({ ...d, peselCustomText: v }))} onCustomColorChange={(v) => setMod2(d => ({ ...d, peselCustomColor: v }))} disabled={!canAdmin} />
           <DropFieldWithCustom label="Dane kontaktowe" value={mod2.daneKontaktowe} customText={mod2.daneKontaktoweCustomText} customColor={mod2.daneKontaktoweCustomColor} options={DANE_KONTAKTOWE_STATUS} onChange={(v) => setMod2(d => ({ ...d, daneKontaktowe: v }))} onCustomTextChange={(v) => setMod2(d => ({ ...d, daneKontaktoweCustomText: v }))} onCustomColorChange={(v) => setMod2(d => ({ ...d, daneKontaktoweCustomColor: v }))} disabled={!canAdmin} />
           <DropFieldWithCustom label="Branża" value={mod2.branza} customText={mod2.branzaCustomText} customColor={mod2.branzaCustomColor} options={BRANZE} onChange={(v) => setMod2(d => ({ ...d, branza: v }))} onCustomTextChange={(v) => setMod2(d => ({ ...d, branzaCustomText: v }))} onCustomColorChange={(v) => setMod2(d => ({ ...d, branzaCustomColor: v }))} disabled={!canAdmin} />
@@ -667,7 +690,7 @@ export default function PzkCasePage() {
           <DropField label="Oświadczenie do wys. elektr." value={mod2.oswiadczenieElektroniczne} options={DOC_STATUS_ELEKTR} onChange={(v) => setMod2(d => ({ ...d, oswiadczenieElektroniczne: v as never }))} disabled={!canAdmin} />
           <CommentField value={mod2.oswiadczenieElektroniczneKomentarz} onChange={(v) => setMod2(d => ({ ...d, oswiadczenieElektroniczneKomentarz: v }))} disabled={!canAdmin} />
 
-          <p className="text-xs font-semibold text-gray-400 uppercase mt-3 mb-2">2C — Dostępy</p>
+          <SubModuleHeader title="2C — Dostępy" closed={c.mod2CClosed} canEdit={canAdmin} onToggle={() => toggleModuleClosed("mod2CClosed", c.mod2CClosed)} />
           <DropField label="Benefit System" value={mod2.benefitSystem} options={ACCESS_STATUS} onChange={(v) => setMod2(d => ({ ...d, benefitSystem: v as never }))} disabled={!canAdmin} />
           <DropField label="Konto mBank" value={mod2.kontoMBank} options={ACCESS_STATUS} onChange={(v) => setMod2(d => ({ ...d, kontoMBank: v as never }))} disabled={!canAdmin} />
           <DropField label="Konto CRM" value={mod2.kontoCRM} options={ACCESS_STATUS} onChange={(v) => setMod2(d => ({ ...d, kontoCRM: v as never }))} disabled={!canAdmin} />
@@ -724,11 +747,11 @@ export default function PzkCasePage() {
           onSave={() => saveModule("mod4Ksieg", mod4)}
           saving={savingMod === "mod4Ksieg"}
         >
-          <p className="text-xs font-semibold text-gray-400 uppercase mb-2">4A — Dokumenty</p>
+          <SubModuleHeader title="4A — Dokumenty" closed={c.mod4AClosed} canEdit={canKsieg} onToggle={() => toggleModuleClosed("mod4AClosed", c.mod4AClosed)} />
           <TextField label="Braki księgowość – dokumenty" value={mod4.brakiKsiegDok} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegDok: v }))} disabled={!canKsieg} />
           <TextField label="Uzupełnione" value={mod4.brakiKsiegDokUzup} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegDokUzup: v }))} disabled={!canKsieg} />
 
-          <p className="text-xs font-semibold text-gray-400 uppercase mt-3 mb-2">4B — Płatności</p>
+          <SubModuleHeader title="4B — Płatności" closed={c.mod4BClosed} canEdit={canKsieg} onToggle={() => toggleModuleClosed("mod4BClosed", c.mod4BClosed)} />
           <AmountField label="Braki księgowość – płatności" value={mod4.brakiKsiegPlatnosci} paymentStatus={mod4.brakiKsiegPlatnosciStatus} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegPlatnosci: v }))} disabled={!canKsieg} />
           <TextField label="Opłaty za" value={mod4.brakiKsiegPlatnosciOplatyZa} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegPlatnosciOplatyZa: v }))} disabled={!canKsieg} />
           <PaymentStatusField label="Status opłat" value={mod4.brakiKsiegPlatnosciStatus} nieOplacono={mod4.brakiKsiegPlatnosciNieOplacono} nieUzyskano={mod4.brakiKsiegPlatnosciNieUzyskano} options={PAYMENT_STATUS} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegPlatnosciStatus: v }))} onNieOplaconoChange={(v) => setMod4(d => ({ ...d, brakiKsiegPlatnosciNieOplacono: v }))} onNieUzyskanoChange={(v) => setMod4(d => ({ ...d, brakiKsiegPlatnosciNieUzyskano: v }))} disabled={!canKsieg} />
@@ -744,11 +767,11 @@ export default function PzkCasePage() {
           onSave={() => saveModule("mod5Legal", mod5)}
           saving={savingMod === "mod5Legal"}
         >
-          <p className="text-xs font-semibold text-gray-400 uppercase mb-2">5A — Dokumenty</p>
+          <SubModuleHeader title="5A — Dokumenty" closed={c.mod5AClosed} canEdit={canLegal} onToggle={() => toggleModuleClosed("mod5AClosed", c.mod5AClosed)} />
           <TextField label="Braki legalizacja – dokumenty" value={mod5.brakiLegalDok} onChange={(v) => setMod5(d => ({ ...d, brakiLegalDok: v }))} disabled={!canLegal} />
           <TextField label="Uzupełnione" value={mod5.brakiLegalDokUzup} onChange={(v) => setMod5(d => ({ ...d, brakiLegalDokUzup: v }))} disabled={!canLegal} />
 
-          <p className="text-xs font-semibold text-gray-400 uppercase mt-3 mb-2">5B — Płatności</p>
+          <SubModuleHeader title="5B — Płatności" closed={c.mod5BClosed} canEdit={canLegal} onToggle={() => toggleModuleClosed("mod5BClosed", c.mod5BClosed)} />
           <AmountField label="Braki legalizacja – płatności" value={mod5.brakiLegalPlatnosci} paymentStatus={mod5.brakiLegalPlatnosciStatus} onChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosci: v }))} disabled={!canLegal} />
           <TextField label="Opłaty za" value={mod5.brakiLegalPlatnosciOplatyZa} onChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciOplatyZa: v }))} disabled={!canLegal} />
           <PaymentStatusField label="Status opłat" value={mod5.brakiLegalPlatnosciStatus} nieOplacono={mod5.brakiLegalPlatnosciNieOplacono} nieUzyskano={mod5.brakiLegalPlatnosciNieUzyskano} options={PAYMENT_STATUS} onChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciStatus: v }))} onNieOplaconoChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciNieOplacono: v }))} onNieUzyskanoChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciNieUzyskano: v }))} disabled={!canLegal} />
@@ -764,17 +787,17 @@ export default function PzkCasePage() {
           onSave={() => saveModule("mod6Platnosci", mod6)}
           saving={savingMod === "mod6Platnosci"}
         >
-          <p className="text-xs font-semibold text-gray-400 uppercase mb-2">6A — Opłaty za współpracę</p>
+          <SubModuleHeader title="6A — Opłaty za współpracę" closed={c.mod6AClosed} canEdit={canOplaty} onToggle={() => toggleModuleClosed("mod6AClosed", c.mod6AClosed)} />
           <AmountField label="Kwota" value={mod6.oplatyWspolpraca} paymentStatus={mod6.oplatyWspolpracaStatus} onChange={(v) => setMod6(d => ({ ...d, oplatyWspolpraca: v }))} disabled={!canOplaty} />
           <TextField label="Opłaty za okres" value={mod6.oplatyWspolpracaZaOkres} onChange={(v) => setMod6(d => ({ ...d, oplatyWspolpracaZaOkres: v }))} disabled={!canOplaty} />
           <DropField label="Status opłat" value={mod6.oplatyWspolpracaStatus} options={PAYMENT_STATUS} onChange={(v) => setMod6(d => ({ ...d, oplatyWspolpracaStatus: v }))} disabled={!canOplaty} />
 
-          <p className="text-xs font-semibold text-gray-400 uppercase mt-3 mb-2">6B — Opłaty Benefit – Multisport</p>
+          <SubModuleHeader title="6B — Opłaty Benefit – Multisport" closed={c.mod6BClosed} canEdit={canOplaty} onToggle={() => toggleModuleClosed("mod6BClosed", c.mod6BClosed)} />
           <AmountField label="Kwota Multisport" value={mod6.oplatyMultisport} paymentStatus={mod6.oplatyMultisportStatus} onChange={(v) => setMod6(d => ({ ...d, oplatyMultisport: v }))} disabled={!canOplaty} />
           <TextField label="Opłaty za okres" value={mod6.oplatyMultisportZaOkres} onChange={(v) => setMod6(d => ({ ...d, oplatyMultisportZaOkres: v }))} disabled={!canOplaty} />
           <DropField label="Status opłat" value={mod6.oplatyMultisportStatus} options={[...PAYMENT_STATUS, "Nie dotyczy"]} onChange={(v) => setMod6(d => ({ ...d, oplatyMultisportStatus: v }))} disabled={!canOplaty} />
 
-          <p className="text-xs font-semibold text-gray-400 uppercase mt-3 mb-2">6C — Opłaty Benefit – Medicover</p>
+          <SubModuleHeader title="6C — Opłaty Benefit – Medicover" closed={c.mod6CClosed} canEdit={canOplaty} onToggle={() => toggleModuleClosed("mod6CClosed", c.mod6CClosed)} />
           <AmountField label="Kwota Medicover" value={mod6.oplatyMedicover} paymentStatus={mod6.oplatyMedicoverStatus} onChange={(v) => setMod6(d => ({ ...d, oplatyMedicover: v }))} disabled={!canOplaty} />
           <TextField label="Opłaty za okres" value={mod6.oplatyMedicoverZaOkres} onChange={(v) => setMod6(d => ({ ...d, oplatyMedicoverZaOkres: v }))} disabled={!canOplaty} />
           <DropField label="Status opłat" value={mod6.oplatyMedicoverStatus} options={[...PAYMENT_STATUS, "Nie dotyczy"]} onChange={(v) => setMod6(d => ({ ...d, oplatyMedicoverStatus: v }))} disabled={!canOplaty} />
@@ -840,7 +863,7 @@ export default function PzkCasePage() {
           onSave={() => saveModule("mod8Inne", mod8)}
           saving={savingMod === "mod8Inne"}
         >
-          <p className="text-xs font-semibold text-gray-400 uppercase mb-2">8A — Bramki płatności</p>
+          <SubModuleHeader title="8A — Bramki płatności" closed={c.mod8AClosed} canEdit={canMod8} onToggle={() => toggleModuleClosed("mod8AClosed", c.mod8AClosed)} />
           {(mod8.bramkiEntries || []).map((entry, i) => (
             <div key={i} className="mb-2 pb-2 border-b border-gray-100 last:border-0">
               <div className="flex items-center justify-between mb-1">
@@ -854,7 +877,7 @@ export default function PzkCasePage() {
           {(mod8.bramkiEntries || []).length === 0 && <p className="text-xs text-gray-400 mb-1">Brak wpisów</p>}
           {canMod8 && <button type="button" onClick={() => setMod8(d => ({ ...d, bramkiEntries: [...(d.bramkiEntries || []), {}] }))} className="text-xs text-blue-600 hover:underline mb-3 block">+ Dodaj bramkę</button>}
 
-          <p className="text-xs font-semibold text-gray-400 uppercase mt-3 mb-2">8B — Domena/Hosting</p>
+          <SubModuleHeader title="8B — Domena/Hosting" closed={c.mod8BClosed} canEdit={canMod8} onToggle={() => toggleModuleClosed("mod8BClosed", c.mod8BClosed)} />
           {(mod8.domenaEntries || []).map((entry, i) => (
             <div key={i} className="mb-2 pb-2 border-b border-gray-100 last:border-0">
               <div className="flex items-center justify-between mb-1">

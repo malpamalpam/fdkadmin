@@ -32,8 +32,13 @@ export async function PATCH(
   const allowed = [
     "lastName", "firstNames", "benefEmail", "clientType", "responsibleWorker",
     "cooperationEndsAt", "withdrawnFromNotice", "caseClosed",
-    "mod1Closed", "mod2Closed", "mod3AClosed", "mod3BClosed", "mod4Closed",
-    "mod5Closed", "mod6Closed", "mod7AClosed", "mod7BClosed", "mod8Closed",
+    "mod1Closed", "mod2Closed", "mod2AClosed", "mod2BClosed", "mod2CClosed",
+    "mod3AClosed", "mod3BClosed",
+    "mod4Closed", "mod4AClosed", "mod4BClosed",
+    "mod5Closed", "mod5AClosed", "mod5BClosed",
+    "mod6Closed", "mod6AClosed", "mod6BClosed", "mod6CClosed",
+    "mod7AClosed", "mod7BClosed",
+    "mod8Closed", "mod8AClosed", "mod8BClosed",
   ];
 
   const updates: Record<string, unknown> = {};

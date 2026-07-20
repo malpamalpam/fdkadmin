@@ -42,16 +42,22 @@ function computeAutoClose(moduleKey: string, data: Record<string, unknown>): Rec
   const result: Record<string, boolean> = {};
 
   if (moduleKey === "mod2Admin") {
-    const fields = [
-      "wypowiedzenie", "pesel", "daneKontaktowe",
-      "umowa", "rodo", "oswiadczenieTworcy", "krk", "oswiadczenieElektroniczne",
-      "benefitSystem", "kontoMBank", "kontoCRM",
-    ];
-    if (fields.every(f => isGG(get(data, f)))) result.mod2Closed = true;
+    // 2A sub-module
+    const fields2A = ["wypowiedzenie"];
+    if (fields2A.every(f => isGG(get(data, f)))) result.mod2AClosed = true;
+    // 2B sub-module
+    const fields2B = ["pesel", "daneKontaktowe", "umowa", "rodo", "oswiadczenieTworcy", "krk", "oswiadczenieElektroniczne"];
+    if (fields2B.every(f => isGG(get(data, f)))) result.mod2BClosed = true;
+    // 2C sub-module
+    const fields2C = ["benefitSystem", "kontoMBank", "kontoCRM"];
+    if (fields2C.every(f => isGG(get(data, f)))) result.mod2CClosed = true;
+    // Whole module closed when all sub-modules closed
+    const allFields = [...fields2A, ...fields2B, ...fields2C];
+    if (allFields.every(f => isGG(get(data, f)))) result.mod2Closed = true;
   }
 
   if (moduleKey === "mod3Kadry") {
-    // 3A: sprawy kadrowe — just check payment status
+    // 3A: sprawy kadrowe — check payment status
     if (isGG(get(data, "brakiKadryPlatnosciStatus"))) result.mod3AClosed = true;
     // 3B: ubezpieczenia — if UZ = ND, skip; otherwise check status + ZWUA
     if (get(data, "brakiUZPlatnosci") === "Nie dotyczy") {
@@ -62,18 +68,31 @@ function computeAutoClose(moduleKey: string, data: Record<string, unknown>): Rec
   }
 
   if (moduleKey === "mod4Ksieg") {
+    // 4A sub-module — documents
+    // 4B sub-module — payments
+    if (isGG(get(data, "brakiKsiegPlatnosciStatus"))) result.mod4BClosed = true;
+    // Whole module
     if (isGG(get(data, "brakiKsiegPlatnosciStatus"))) result.mod4Closed = true;
   }
 
   if (moduleKey === "mod5Legal") {
+    // 5B sub-module — payments
+    if (isGG(get(data, "brakiLegalPlatnosciStatus"))) result.mod5BClosed = true;
+    // Whole module
     if (isGG(get(data, "brakiLegalPlatnosciStatus"))) result.mod5Closed = true;
   }
 
   if (moduleKey === "mod6Platnosci") {
+    // 6A
+    if (isGG(get(data, "oplatyWspolpracaStatus"))) result.mod6AClosed = true;
+    // 6B Multisport
     const multiND = get(data, "oplatyMultisportStatus") === "Nie dotyczy" || !get(data, "oplatyMultisport");
     const multiOk = multiND || isGG(get(data, "oplatyMultisportStatus"));
+    if (multiOk) result.mod6BClosed = true;
+    // 6C Medicover
     const mediND = get(data, "oplatyMedicoverStatus") === "Nie dotyczy" || !get(data, "oplatyMedicover");
     const mediOk = mediND || isGG(get(data, "oplatyMedicoverStatus"));
+    if (mediOk) result.mod6CClosed = true;
     // Legacy fallback
     const legacyND = get(data, "oplatyBenefitStatus") === "Nie dotyczy" || !get(data, "oplatyBenefit");
     const legacyOk = legacyND || isGG(get(data, "oplatyBenefitStatus"));
@@ -109,6 +128,8 @@ function computeAutoClose(moduleKey: string, data: Record<string, unknown>): Rec
     const domenaOk = domenaEntries?.length
       ? domenaEntries.every(e => (e.rodzaj as string) === "Nie dotyczy" || isGG(e.status as string))
       : (get(data, "domenaRodzaj") === "Nie dotyczy" || isGG(get(data, "domenaStatus")));
+    if (bramkiOk) result.mod8AClosed = true;
+    if (domenaOk) result.mod8BClosed = true;
     if (bramkiOk && domenaOk) result.mod8Closed = true;
   }
 
