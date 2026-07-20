@@ -22,7 +22,7 @@ const GREEN_GRAY_VALUES = new Set([
   "Oryginał", "Komplet", "Dezaktywowane", "Wysłane", "Zamknięte", "Niepotrzebne",
   "Podpisana i wysłana", "Beneficjent nie posiada PESEL",
   "Opłacono", "Opłacono - z subkonta", "Opłacono - wpłata zewnętrzna", "Opłacono - gotówka",
-  "Nie dotyczy",
+  "Nie dotyczy", "Odmowa",
 ]);
 
 function isGG(v: string | undefined | null): boolean {
@@ -70,26 +70,46 @@ function computeAutoClose(moduleKey: string, data: Record<string, unknown>): Rec
   }
 
   if (moduleKey === "mod6Platnosci") {
-    const benefitND = get(data, "oplatyBenefit") === "Nie dotyczy";
-    const benefitOk = benefitND || isGG(get(data, "oplatyBenefitStatus"));
+    const multiND = get(data, "oplatyMultisportStatus") === "Nie dotyczy" || !get(data, "oplatyMultisport");
+    const multiOk = multiND || isGG(get(data, "oplatyMultisportStatus"));
+    const mediND = get(data, "oplatyMedicoverStatus") === "Nie dotyczy" || !get(data, "oplatyMedicover");
+    const mediOk = mediND || isGG(get(data, "oplatyMedicoverStatus"));
+    // Legacy fallback
+    const legacyND = get(data, "oplatyBenefitStatus") === "Nie dotyczy" || !get(data, "oplatyBenefit");
+    const legacyOk = legacyND || isGG(get(data, "oplatyBenefitStatus"));
+    const benefitOk = (get(data, "oplatyMultisport") || get(data, "oplatyMedicover")) ? (multiOk && mediOk) : legacyOk;
     if (isGG(get(data, "oplatyWspolpracaStatus")) && benefitOk) result.mod6Closed = true;
   }
 
   if (moduleKey === "mod7Umowy") {
-    if (get(data, "b2bKontrahent") === "Nie dotyczy" || isGG(get(data, "b2bWypowiedzenie"))) {
+    // Multi-entry B2B
+    const b2bEntries = data.b2bEntries as Array<Record<string, unknown>> | undefined;
+    if (b2bEntries?.length) {
+      if (b2bEntries.every(e => (e.kontrahent as string) === "Nie dotyczy" || isGG(e.wypowiedzenie as string))) result.mod7AClosed = true;
+    } else if (get(data, "b2bKontrahent") === "Nie dotyczy" || isGG(get(data, "b2bWypowiedzenie"))) {
       result.mod7AClosed = true;
     }
-    if (get(data, "najmUmowa") === "Nie dotyczy" || isGG(get(data, "najmWypowiedzenie"))) {
+    // Multi-entry Najem
+    const najmEntries = data.najmEntries as Array<Record<string, unknown>> | undefined;
+    if (najmEntries?.length) {
+      if (najmEntries.every(e => (e.umowa as string) === "Nie dotyczy" || isGG(e.wypowiedzenie as string))) result.mod7BClosed = true;
+    } else if (get(data, "najmUmowa") === "Nie dotyczy" || isGG(get(data, "najmWypowiedzenie"))) {
       result.mod7BClosed = true;
     }
   }
 
   if (moduleKey === "mod8Inne") {
-    const bramkiND = get(data, "bramkiRodzaj") === "Nie dotyczy";
-    const domenaND = get(data, "domenaRodzaj") === "Nie dotyczy";
-    if ((bramkiND || isGG(get(data, "bramkiStatus"))) && (domenaND || isGG(get(data, "domenaStatus")))) {
-      result.mod8Closed = true;
-    }
+    // Multi-entry bramki
+    const bramkiEntries = data.bramkiEntries as Array<Record<string, unknown>> | undefined;
+    const bramkiOk = bramkiEntries?.length
+      ? bramkiEntries.every(e => (e.rodzaj as string) === "Nie dotyczy" || isGG(e.status as string))
+      : (get(data, "bramkiRodzaj") === "Nie dotyczy" || isGG(get(data, "bramkiStatus")));
+    // Multi-entry domeny
+    const domenaEntries = data.domenaEntries as Array<Record<string, unknown>> | undefined;
+    const domenaOk = domenaEntries?.length
+      ? domenaEntries.every(e => (e.rodzaj as string) === "Nie dotyczy" || isGG(e.status as string))
+      : (get(data, "domenaRodzaj") === "Nie dotyczy" || isGG(get(data, "domenaStatus")));
+    if (bramkiOk && domenaOk) result.mod8Closed = true;
   }
 
   return result;

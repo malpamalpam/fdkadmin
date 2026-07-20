@@ -15,6 +15,7 @@ interface PzkListItem {
   responsibleWorker: string | null;
   cooperationEndsAt: string | null;
   withdrawnFromNotice: boolean;
+  caseClosed: boolean;
   createdByName: string;
   emailInitialSent: boolean;
   mod1Closed: boolean; mod2Closed: boolean; mod3AClosed: boolean; mod3BClosed: boolean;
@@ -132,17 +133,20 @@ export default function PzkTutloPage() {
               <Link
                 key={c.id}
                 href={`/panel/pzk-tutlo/${c.id}`}
-                className={`block bg-white border rounded-lg px-4 py-3 hover:border-purple-400 transition-colors ${c.withdrawnFromNotice ? "opacity-60" : ""}`}
+                className={`block bg-white border rounded-lg px-4 py-3 hover:border-purple-400 transition-colors ${c.withdrawnFromNotice || c.caseClosed ? "opacity-60" : ""}`}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-gray-900">{c.firstNames} {c.lastName}</span>
-                      {c.withdrawnFromNotice && (
-                        <span className="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full">Rezygnacja z wypowiedzenia</span>
+                      {c.caseClosed && (
+                        <span className="text-xs px-2 py-0.5 bg-gray-200 text-gray-700 rounded-full font-medium">Zamknięta</span>
                       )}
-                      {allClosed && !c.withdrawnFromNotice && (
-                        <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">Zamknięta</span>
+                      {c.withdrawnFromNotice && (
+                        <span className="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full">Rezygnacja</span>
+                      )}
+                      {allClosed && !c.withdrawnFromNotice && !c.caseClosed && (
+                        <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">Komplet</span>
                       )}
                     </div>
                     <div className="text-sm text-gray-500 mt-0.5 flex flex-wrap gap-3">

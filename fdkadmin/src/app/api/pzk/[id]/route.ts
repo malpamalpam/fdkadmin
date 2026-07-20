@@ -31,7 +31,7 @@ export async function PATCH(
   // Allow updating top-level beneficjent fields + close flags
   const allowed = [
     "lastName", "firstNames", "benefEmail", "clientType", "responsibleWorker",
-    "cooperationEndsAt", "withdrawnFromNotice",
+    "cooperationEndsAt", "withdrawnFromNotice", "caseClosed",
     "mod1Closed", "mod2Closed", "mod3AClosed", "mod3BClosed", "mod4Closed",
     "mod5Closed", "mod6Closed", "mod7AClosed", "mod7BClosed", "mod8Closed",
   ];

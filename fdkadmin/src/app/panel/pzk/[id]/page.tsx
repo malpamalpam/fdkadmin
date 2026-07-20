@@ -111,6 +111,116 @@ function AmountField({
   );
 }
 
+// ─── Dropdown with custom text + manual color override ────────────────────────
+
+const COLOR_OPTIONS: { value: FieldColor; label: string; cls: string }[] = [
+  { value: "green", label: "Zielony", cls: "bg-green-500" },
+  { value: "yellow", label: "Żółty", cls: "bg-yellow-400" },
+  { value: "red", label: "Czerwony", cls: "bg-red-500" },
+  { value: "gray", label: "Szary", cls: "bg-gray-300" },
+];
+
+function DropFieldWithCustom({
+  label, value, customText, customColor, options, onChange, onCustomTextChange, onCustomColorChange, disabled,
+}: {
+  label: string; value: string | undefined; customText?: string; customColor?: FieldColor;
+  options: string[]; onChange: (v: string) => void;
+  onCustomTextChange?: (v: string) => void; onCustomColorChange?: (v: FieldColor) => void;
+  disabled?: boolean;
+}) {
+  const isCustom = value === "Do wpisania";
+  const displayColor = customColor ?? getFieldColor(value);
+  return (
+    <div className="py-1.5 border-b border-gray-100 last:border-0">
+      <div className="flex items-center gap-2">
+        <ColorDot color={displayColor} />
+        <span className="text-xs text-gray-500 w-48 flex-shrink-0">{label}</span>
+        {disabled ? (
+          <span className="text-sm text-gray-700">{isCustom && customText ? `${value}: ${customText}` : (value || "—")}</span>
+        ) : (
+          <select className="text-sm border-0 bg-transparent focus:ring-0 p-0 cursor-pointer text-gray-800" value={value || ""} onChange={(e) => onChange(e.target.value)}>
+            <option value="">— wybierz —</option>
+            {options.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+        )}
+      </div>
+      {isCustom && !disabled && (
+        <div className="flex items-center gap-2 ml-5 mt-1">
+          <input type="text" className="text-sm border rounded px-2 py-0.5 flex-1 min-w-0" value={customText || ""} onChange={(e) => onCustomTextChange?.(e.target.value)} placeholder="Wpisz szczegóły..." />
+          <div className="flex gap-1">
+            {COLOR_OPTIONS.map((co) => (
+              <button key={co.value} type="button" onClick={() => onCustomColorChange?.(co.value)}
+                className={`w-4 h-4 rounded-full ${co.cls} ${customColor === co.value ? "ring-2 ring-offset-1 ring-blue-500" : "opacity-60 hover:opacity-100"}`}
+                title={co.label} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Comment field for 3A ─────────────────────────────────────────────────────
+
+function CommentField({ value, onChange, disabled }: { value: string | undefined; onChange: (v: string) => void; disabled?: boolean }) {
+  if (disabled && !value) return null;
+  return (
+    <div className="flex items-center gap-2 py-0.5 ml-5">
+      <span className="w-2.5 flex-shrink-0" />
+      <span className="text-xs text-gray-400 w-48 flex-shrink-0">↳ komentarz</span>
+      {disabled ? <span className="text-xs text-gray-500 italic">{value}</span> : (
+        <input type="text" className="text-xs border-0 bg-transparent focus:ring-0 p-0 flex-1 min-w-0 text-gray-500 italic" value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder="komentarz..." />
+      )}
+    </div>
+  );
+}
+
+// ─── Color summary helper ─────────────────────────────────────────────────────
+
+function countColors(c: PzkCase): { green: number; yellow: number; red: number; gray: number } {
+  const counts = { green: 0, yellow: 0, red: 0, gray: 0 };
+  function check(val: string | undefined | null) {
+    const col = getFieldColor(val);
+    if (col && col in counts) counts[col as keyof typeof counts]++;
+  }
+  function checkAmount(amount: string | undefined, status?: string) {
+    const col = getAmountColor(amount, status);
+    if (col && col in counts) counts[col as keyof typeof counts]++;
+  }
+  const m2 = (c.mod2Admin || {}) as Mod2Admin;
+  check(m2.wypowiedzenie); check(m2.pesel); check(m2.daneKontaktowe);
+  check(m2.umowa); check(m2.rodo); check(m2.oswiadczenieTworcy);
+  check(m2.krk); check(m2.oswiadczenieElektroniczne);
+  check(m2.benefitSystem); check(m2.kontoMBank); check(m2.kontoCRM);
+  checkAmount(m2.biezaceSwrodkiMBank);
+  const m3 = (c.mod3Kadry || {}) as Mod3Kadry;
+  check(m3.brakiKadryPlatnosciStatus); check(m3.legitymacja);
+  check(m3.brakiUZPlatnosciStatus); check(m3.zwua);
+  checkAmount(m3.brakiKadryPlatnosci, m3.brakiKadryPlatnosciStatus);
+  checkAmount(m3.brakiUZPlatnosci, m3.brakiUZPlatnosciStatus);
+  const m4 = (c.mod4Ksieg || {}) as Mod4Ksieg;
+  check(m4.brakiKsiegPlatnosciStatus);
+  checkAmount(m4.brakiKsiegPlatnosci, m4.brakiKsiegPlatnosciStatus);
+  const m5 = (c.mod5Legal || {}) as Mod5Legal;
+  check(m5.brakiLegalPlatnosciStatus);
+  checkAmount(m5.brakiLegalPlatnosci, m5.brakiLegalPlatnosciStatus);
+  const m6 = (c.mod6Platnosci || {}) as Mod6Platnosci;
+  check(m6.oplatyWspolpracaStatus);
+  check(m6.oplatyMultisportStatus); check(m6.oplatyMedicoverStatus);
+  checkAmount(m6.oplatyWspolpraca, m6.oplatyWspolpracaStatus);
+  const m7 = (c.mod7Umowy || {}) as Mod7Umowy;
+  if (m7.b2bEntries?.length) m7.b2bEntries.forEach(e => check(e.wypowiedzenie));
+  else check(m7.b2bWypowiedzenie);
+  if (m7.najmEntries?.length) m7.najmEntries.forEach(e => check(e.wypowiedzenie));
+  else check(m7.najmWypowiedzenie);
+  const m8 = (c.mod8Inne || {}) as Mod8Inne;
+  if (m8.bramkiEntries?.length) m8.bramkiEntries.forEach(e => check(e.status));
+  else check(m8.bramkiStatus);
+  if (m8.domenaEntries?.length) m8.domenaEntries.forEach(e => check(e.status));
+  else check(m8.domenaStatus);
+  return counts;
+}
+
 // ─── Module card ──────────────────────────────────────────────────────────────
 
 function ModuleCard({
@@ -153,10 +263,13 @@ function ModuleCard({
 
 // ─── Option lists ─────────────────────────────────────────────────────────────
 
-const DOC_STATUS = ["Oryginał", "Skan", "Do uzupełnienia", "Nie uzyskano", "Nie dotyczy", "Odmowa"];
+const DOC_STATUS = ["Oryginał", "Skan", "Do uzupełnienia", "Nie uzyskano", "Nie dotyczy"];
+const DOC_STATUS_NO_ND = ["Oryginał", "Skan", "Do uzupełnienia", "Nie uzyskano"]; // Umowa, RODO — always required
+const DOC_STATUS_ELEKTR = ["Oryginał", "Skan", "Do uzupełnienia", "Nie uzyskano", "Nie dotyczy", "Odmowa"]; // Oświadczenie elektr. — Odmowa = green
+const KRK_STATUS = ["Oryginał", "Skan", "Do uzupełnienia", "Nie uzyskano", "Nie dotyczy"];
 const ACCESS_STATUS = ["Aktywne", "Dezaktywowane", "Nie dotyczy"];
 const PAYMENT_STATUS = ["Komplet", "Opłacono - z subkonta", "Opłacono - wpłata zewnętrzna", "Opłacono - gotówka", "Nie opłacono: proszę uzupełnić"];
-const BRANZE = ["Lektor", "IT", "E-commerce", "Grafik", "Architekt", "Fotograf", "Tłumacz", "Coaching", "Consulting", "inne"];
+const BRANZE = ["Lektor", "IT", "E-commerce", "Grafik", "Architekt", "Fotograf", "Tłumacz", "Coaching", "Consulting", "inne", "Do uzupełnienia"];
 const PESEL_STATUS = ["Do wpisania", "Komplet", "Do uzupełnienia", "Beneficjent nie posiada PESEL"];
 const DANE_KONTAKTOWE_STATUS = ["Do wpisania", "Komplet", "Do uzupełnienia", "Brak adresu zamieszkania", "Brak telefonu"];
 const WYP_STATUS = ["Oryginał", "Skan", "Do uzupełnienia", "Nie uzyskano"];
@@ -194,6 +307,14 @@ export default function PzkCasePage() {
   const [mod7, setMod7] = useState<Mod7Umowy>({});
   const [mod8, setMod8] = useState<Mod8Inne>({});
 
+  // Module 1 editable fields
+  const [mod1LastName, setMod1LastName] = useState("");
+  const [mod1FirstNames, setMod1FirstNames] = useState("");
+  const [mod1Email, setMod1Email] = useState("");
+  const [mod1ClientType, setMod1ClientType] = useState<PzkClientType>("STANDARD_KADRY");
+  const [mod1Worker, setMod1Worker] = useState("");
+  const [savingMod1, setSavingMod1] = useState(false);
+
   const [savingMod, setSavingMod] = useState<string | null>(null);
   const [editingDate, setEditingDate] = useState(false);
   const [dateValue, setDateValue] = useState("");
@@ -207,13 +328,40 @@ export default function PzkCasePage() {
     if (!res.ok) { router.push("/panel/pzk"); return; }
     const data: PzkCase = await res.json();
     setC(data);
+    setMod1LastName(data.lastName);
+    setMod1FirstNames(data.firstNames);
+    setMod1Email(data.benefEmail || "");
+    setMod1ClientType(data.clientType);
+    setMod1Worker(data.responsibleWorker || "");
     setMod2((data.mod2Admin as Mod2Admin) || {});
     setMod3((data.mod3Kadry as Mod3Kadry) || {});
     setMod4((data.mod4Ksieg as Mod4Ksieg) || {});
     setMod5((data.mod5Legal as Mod5Legal) || {});
-    setMod6((data.mod6Platnosci as Mod6Platnosci) || {});
-    setMod7((data.mod7Umowy as Mod7Umowy) || {});
-    setMod8((data.mod8Inne as Mod8Inne) || {});
+    const m6raw = (data.mod6Platnosci as Mod6Platnosci) || {};
+    // Migrate legacy oplatyBenefit to Multisport if new fields empty
+    if (!m6raw.oplatyMultisport && m6raw.oplatyBenefit) {
+      m6raw.oplatyMultisport = m6raw.oplatyBenefit;
+      m6raw.oplatyMultisportZaOkres = m6raw.oplatyBenefitZaOkres;
+      m6raw.oplatyMultisportStatus = m6raw.oplatyBenefitStatus;
+    }
+    setMod6(m6raw);
+    // Migrate legacy single-entry to multi-entry format
+    const m7raw = (data.mod7Umowy as Mod7Umowy) || {};
+    if (!m7raw.b2bEntries && m7raw.b2bKontrahent) {
+      m7raw.b2bEntries = [{ kontrahent: m7raw.b2bKontrahent, dataRozpoczecia: m7raw.b2bDataRozpoczecia, wypowiedzenie: m7raw.b2bWypowiedzenie, dataWypowiedzenia: m7raw.b2bDataWypowiedzenia }];
+    }
+    if (!m7raw.najmEntries && m7raw.najmUmowa) {
+      m7raw.najmEntries = [{ umowa: m7raw.najmUmowa, dataRozpoczecia: m7raw.najmDataRozpoczecia, wypowiedzenie: m7raw.najmWypowiedzenie, dataWypowiedzenia: m7raw.najmDataWypowiedzenia }];
+    }
+    setMod7(m7raw);
+    const m8raw = (data.mod8Inne as Mod8Inne) || {};
+    if (!m8raw.bramkiEntries && m8raw.bramkiRodzaj) {
+      m8raw.bramkiEntries = [{ rodzaj: m8raw.bramkiRodzaj, status: m8raw.bramkiStatus }];
+    }
+    if (!m8raw.domenaEntries && m8raw.domenaRodzaj) {
+      m8raw.domenaEntries = [{ rodzaj: m8raw.domenaRodzaj, status: m8raw.domenaStatus }];
+    }
+    setMod8(m8raw);
     setLoading(false);
   }, [id, router]);
 
@@ -222,6 +370,21 @@ export default function PzkCasePage() {
   useEffect(() => {
     if (c?.cooperationEndsAt) setDateValue(c.cooperationEndsAt.substring(0, 10));
   }, [c?.cooperationEndsAt]);
+
+  async function saveMod1() {
+    setSavingMod1(true);
+    try {
+      const res = await fetch(`/api/pzk/${id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lastName: mod1LastName, firstNames: mod1FirstNames,
+          benefEmail: mod1Email || null, clientType: mod1ClientType,
+          responsibleWorker: mod1Worker || null,
+        }),
+      });
+      if (res.ok) setC(await res.json());
+    } finally { setSavingMod1(false); }
+  }
 
   async function saveModule(moduleKey: string, data: unknown) {
     setSavingMod(moduleKey);
@@ -288,6 +451,14 @@ export default function PzkCasePage() {
     const res = await fetch(`/api/pzk/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ withdrawnFromNotice: !c!.withdrawnFromNotice }),
+    });
+    if (res.ok) setC(await res.json());
+  }
+
+  async function toggleCaseClosed() {
+    const res = await fetch(`/api/pzk/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ caseClosed: !c!.caseClosed }),
     });
     if (res.ok) setC(await res.json());
   }
@@ -387,6 +558,11 @@ export default function PzkCasePage() {
               Anuluj rezygnację
             </button>
           )}
+          {!c.caseClosed && !c.withdrawnFromNotice && (
+            <button onClick={toggleCaseClosed} className="text-xs text-gray-600 hover:text-gray-900 border px-3 py-1.5 rounded-lg hover:bg-gray-50">
+              Zamknij sprawę
+            </button>
+          )}
         </div>
       </div>
 
@@ -398,33 +574,59 @@ export default function PzkCasePage() {
           {c.emailMid15Sent && <span className="text-blue-700">Powiadomienie 15. wysłane</span>}
           {c.emailFinal28Sent && <span className="text-orange-700">Powiadomienie 28. wysłane</span>}
         </div>
+        {/* Color summary */}
+        {(() => { const cc = countColors(c); return (
+          <div className="flex gap-4 text-xs mb-2">
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-green-500 inline-block" /> <strong>{cc.green}</strong> Komplet</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-yellow-400 inline-block" /> <strong>{cc.yellow}</strong> Do uzyskania</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> <strong>{cc.red}</strong> Nie uzyskano</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-300 inline-block" /> <strong>{cc.gray}</strong> ND</span>
+          </div>
+        ); })()}
         {/* Color legend */}
         <div className="flex flex-wrap gap-3 text-xs text-gray-500">
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> Komplet / Zielony</span>
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" /> Do uzupełnienia</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Nie uzyskano / Odmowa</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Nie uzyskano</span>
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-300 inline-block" /> Nie dotyczy</span>
         </div>
       </div>
 
+      {/* Case closed banner */}
+      {c.caseClosed && (
+        <div className="bg-gray-100 border border-gray-300 rounded-xl p-3 mb-4 flex items-center justify-between">
+          <span className="text-sm font-medium text-gray-700">Sprawa zamknięta — edycja zablokowana</span>
+          {isAdminOrSupervisor && (
+            <button onClick={() => toggleCaseClosed()} className="text-xs text-blue-600 hover:underline">Otwórz ponownie</button>
+          )}
+        </div>
+      )}
+
       {/* Modules */}
       <div className="space-y-3">
 
-        {/* ── Module 1: Beneficjent (read-only — data from header, close flag) ── */}
+        {/* ── Module 1: Beneficjent (editable) ── */}
         <ModuleCard
           title="1. Beneficjent"
           closed={c.mod1Closed}
           canEdit={canAdmin}
           onToggleClose={() => toggleModuleClosed("mod1Closed", c.mod1Closed)}
-          onSave={() => { /* no separate save needed — header fields only */ }}
-          saving={false}
+          onSave={saveMod1}
+          saving={savingMod1}
         >
-          <div className="text-sm text-gray-600 space-y-1">
-            <div className="flex gap-2"><span className="text-gray-400 w-48">Nazwisko i imiona</span><span>{fullName}</span></div>
-            <div className="flex gap-2"><span className="text-gray-400 w-48">E-mail</span><span>{c.benefEmail || "—"}</span></div>
-            <div className="flex gap-2"><span className="text-gray-400 w-48">Rodzaj klienta</span><span>{PZK_CLIENT_TYPE_LABELS[c.clientType]}</span></div>
-            <div className="flex gap-2"><span className="text-gray-400 w-48">Pracownik odpowiedzialny</span><span>{c.responsibleWorker || "—"}</span></div>
+          <TextField label="Nazwisko" value={mod1LastName} onChange={setMod1LastName} disabled={!canAdmin} />
+          <TextField label="Imiona" value={mod1FirstNames} onChange={setMod1FirstNames} disabled={!canAdmin} />
+          <TextField label="E-mail" value={mod1Email} onChange={setMod1Email} disabled={!canAdmin} />
+          <div className="flex items-center gap-2 py-1.5 border-b border-gray-100">
+            <span className="w-2.5 flex-shrink-0" />
+            <span className="text-xs text-gray-500 w-48 flex-shrink-0">Rodzaj klienta</span>
+            {!canAdmin ? <span className="text-sm text-gray-700">{PZK_CLIENT_TYPE_LABELS[mod1ClientType]}</span> : (
+              <select className="text-sm border-0 bg-transparent focus:ring-0 p-0 cursor-pointer text-gray-800" value={mod1ClientType} onChange={(e) => setMod1ClientType(e.target.value as PzkClientType)}>
+                {(Object.entries(PZK_CLIENT_TYPE_LABELS) as [PzkClientType, string][]).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            )}
           </div>
+          <TextField label="Pracownik odpowiedzialny" value={mod1Worker} onChange={setMod1Worker} disabled={!canAdmin} />
         </ModuleCard>
 
         {/* ── Module 2: Administration ── */}
@@ -442,14 +644,14 @@ export default function PzkCasePage() {
           <TextField label="Data startu / CRM" value={mod2.dataStartuCRM} onChange={(v) => setMod2(d => ({ ...d, dataStartuCRM: v }))} disabled={!canAdmin} type="date" />
 
           <p className="text-xs font-semibold text-gray-400 uppercase mt-3 mb-2">2B — Dokumenty wstępne</p>
-          <DropField label="PESEL" value={mod2.pesel} options={PESEL_STATUS} onChange={(v) => setMod2(d => ({ ...d, pesel: v as never }))} disabled={!canAdmin} />
-          <DropField label="Dane kontaktowe" value={mod2.daneKontaktowe} options={DANE_KONTAKTOWE_STATUS} onChange={(v) => setMod2(d => ({ ...d, daneKontaktowe: v as never }))} disabled={!canAdmin} />
-          <DropField label="Branża" value={mod2.branza} options={BRANZE} onChange={(v) => setMod2(d => ({ ...d, branza: v as never }))} disabled={!canAdmin} />
-          <DropField label="Umowa" value={mod2.umowa} options={DOC_STATUS} onChange={(v) => setMod2(d => ({ ...d, umowa: v as never }))} disabled={!canAdmin} />
-          <DropField label="RODO" value={mod2.rodo} options={DOC_STATUS} onChange={(v) => setMod2(d => ({ ...d, rodo: v as never }))} disabled={!canAdmin} />
+          <DropFieldWithCustom label="PESEL" value={mod2.pesel} customText={mod2.peselCustomText} customColor={mod2.peselCustomColor} options={PESEL_STATUS} onChange={(v) => setMod2(d => ({ ...d, pesel: v }))} onCustomTextChange={(v) => setMod2(d => ({ ...d, peselCustomText: v }))} onCustomColorChange={(v) => setMod2(d => ({ ...d, peselCustomColor: v }))} disabled={!canAdmin} />
+          <DropFieldWithCustom label="Dane kontaktowe" value={mod2.daneKontaktowe} customText={mod2.daneKontaktoweCustomText} customColor={mod2.daneKontaktoweCustomColor} options={DANE_KONTAKTOWE_STATUS} onChange={(v) => setMod2(d => ({ ...d, daneKontaktowe: v }))} onCustomTextChange={(v) => setMod2(d => ({ ...d, daneKontaktoweCustomText: v }))} onCustomColorChange={(v) => setMod2(d => ({ ...d, daneKontaktoweCustomColor: v }))} disabled={!canAdmin} />
+          <DropFieldWithCustom label="Branża" value={mod2.branza} customText={mod2.branzaCustomText} customColor={mod2.branzaCustomColor} options={BRANZE} onChange={(v) => setMod2(d => ({ ...d, branza: v }))} onCustomTextChange={(v) => setMod2(d => ({ ...d, branzaCustomText: v }))} onCustomColorChange={(v) => setMod2(d => ({ ...d, branzaCustomColor: v }))} disabled={!canAdmin} />
+          <DropField label="Umowa" value={mod2.umowa} options={DOC_STATUS_NO_ND} onChange={(v) => setMod2(d => ({ ...d, umowa: v as never }))} disabled={!canAdmin} />
+          <DropField label="RODO" value={mod2.rodo} options={DOC_STATUS_NO_ND} onChange={(v) => setMod2(d => ({ ...d, rodo: v as never }))} disabled={!canAdmin} />
           <DropField label="Oświadczenie twórcy" value={mod2.oswiadczenieTworcy} options={DOC_STATUS} onChange={(v) => setMod2(d => ({ ...d, oswiadczenieTworcy: v as never }))} disabled={!canAdmin} />
-          <DropField label="KRK" value={mod2.krk} options={DOC_STATUS} onChange={(v) => setMod2(d => ({ ...d, krk: v as never }))} disabled={!canAdmin} />
-          <DropField label="Oświadczenie do wys. elektr." value={mod2.oswiadczenieElektroniczne} options={DOC_STATUS} onChange={(v) => setMod2(d => ({ ...d, oswiadczenieElektroniczne: v as never }))} disabled={!canAdmin} />
+          <DropFieldWithCustom label="KRK" value={mod2.krk} customText={mod2.krkCustomText} customColor={mod2.krkCustomColor} options={KRK_STATUS} onChange={(v) => setMod2(d => ({ ...d, krk: v }))} onCustomTextChange={(v) => setMod2(d => ({ ...d, krkCustomText: v }))} onCustomColorChange={(v) => setMod2(d => ({ ...d, krkCustomColor: v }))} disabled={!canAdmin} />
+          <DropField label="Oświadczenie do wys. elektr." value={mod2.oswiadczenieElektroniczne} options={DOC_STATUS_ELEKTR} onChange={(v) => setMod2(d => ({ ...d, oswiadczenieElektroniczne: v as never }))} disabled={!canAdmin} />
 
           <p className="text-xs font-semibold text-gray-400 uppercase mt-3 mb-2">2C — Dostępy</p>
           <DropField label="Benefit System" value={mod2.benefitSystem} options={ACCESS_STATUS} onChange={(v) => setMod2(d => ({ ...d, benefitSystem: v as never }))} disabled={!canAdmin} />
@@ -469,11 +671,17 @@ export default function PzkCasePage() {
           saving={savingMod === "mod3Kadry"}
         >
           <TextField label="Braki HR/Kadry – dokumenty" value={mod3.brakiKadryDok} onChange={(v) => setMod3(d => ({ ...d, brakiKadryDok: v }))} disabled={!canKadry} />
+          <CommentField value={mod3.brakiKadryDokKomentarz} onChange={(v) => setMod3(d => ({ ...d, brakiKadryDokKomentarz: v }))} disabled={!canKadry} />
           <TextField label="Uzupełnione" value={mod3.brakiKadryDokUzup} onChange={(v) => setMod3(d => ({ ...d, brakiKadryDokUzup: v }))} disabled={!canKadry} />
+          <CommentField value={mod3.brakiKadryDokUzupKomentarz} onChange={(v) => setMod3(d => ({ ...d, brakiKadryDokUzupKomentarz: v }))} disabled={!canKadry} />
           <AmountField label="Braki HR/Kadry – płatności" value={mod3.brakiKadryPlatnosci} paymentStatus={mod3.brakiKadryPlatnosciStatus} onChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosci: v }))} disabled={!canKadry} />
+          <CommentField value={mod3.brakiKadryPlatnosciKomentarz} onChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosciKomentarz: v }))} disabled={!canKadry} />
           <TextField label="Opłaty za" value={mod3.brakiKadryPlatnosciOplatyZa} onChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosciOplatyZa: v }))} disabled={!canKadry} />
+          <CommentField value={mod3.brakiKadryPlatnosciOplatyZaKomentarz} onChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosciOplatyZaKomentarz: v }))} disabled={!canKadry} />
           <DropField label="Status opłat" value={mod3.brakiKadryPlatnosciStatus} options={PAYMENT_STATUS} onChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosciStatus: v }))} disabled={!canKadry} />
+          <CommentField value={mod3.brakiKadryPlatnosciStatusKomentarz} onChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosciStatusKomentarz: v }))} disabled={!canKadry} />
           <TextField label="Legitymacja" value={mod3.legitymacja} onChange={(v) => setMod3(d => ({ ...d, legitymacja: v }))} disabled={!canKadry} />
+          <CommentField value={mod3.legitymacjaKomentarz} onChange={(v) => setMod3(d => ({ ...d, legitymacjaKomentarz: v }))} disabled={!canKadry} />
         </ModuleCard>
 
         <ModuleCard
@@ -546,13 +754,19 @@ export default function PzkCasePage() {
           <TextField label="Opłaty za okres" value={mod6.oplatyWspolpracaZaOkres} onChange={(v) => setMod6(d => ({ ...d, oplatyWspolpracaZaOkres: v }))} disabled={!canOplaty} />
           <DropField label="Status opłat" value={mod6.oplatyWspolpracaStatus} options={PAYMENT_STATUS} onChange={(v) => setMod6(d => ({ ...d, oplatyWspolpracaStatus: v }))} disabled={!canOplaty} />
 
-          <p className="text-xs font-semibold text-gray-400 uppercase mt-3 mb-2">6B — Opłaty Benefit</p>
-          <AmountField label="Kwota Benefit" value={mod6.oplatyBenefit} paymentStatus={mod6.oplatyBenefitStatus} onChange={(v) => setMod6(d => ({ ...d, oplatyBenefit: v }))} disabled={!canOplaty} />
-          <TextField label="Opłaty za okres" value={mod6.oplatyBenefitZaOkres} onChange={(v) => setMod6(d => ({ ...d, oplatyBenefitZaOkres: v }))} disabled={!canOplaty} />
-          <DropField label="Status opłat" value={mod6.oplatyBenefitStatus} options={[...PAYMENT_STATUS, "Nie dotyczy"]} onChange={(v) => setMod6(d => ({ ...d, oplatyBenefitStatus: v }))} disabled={!canOplaty} />
+          <p className="text-xs font-semibold text-gray-400 uppercase mt-3 mb-2">6B — Opłaty Benefit – Multisport</p>
+          <AmountField label="Kwota Multisport" value={mod6.oplatyMultisport} paymentStatus={mod6.oplatyMultisportStatus} onChange={(v) => setMod6(d => ({ ...d, oplatyMultisport: v }))} disabled={!canOplaty} />
+          <TextField label="Opłaty za okres" value={mod6.oplatyMultisportZaOkres} onChange={(v) => setMod6(d => ({ ...d, oplatyMultisportZaOkres: v }))} disabled={!canOplaty} />
+          <DropField label="Status opłat" value={mod6.oplatyMultisportStatus} options={[...PAYMENT_STATUS, "Nie dotyczy"]} onChange={(v) => setMod6(d => ({ ...d, oplatyMultisportStatus: v }))} disabled={!canOplaty} />
+
+          <p className="text-xs font-semibold text-gray-400 uppercase mt-3 mb-2">6C — Opłaty Benefit – Medicover</p>
+          <AmountField label="Kwota Medicover" value={mod6.oplatyMedicover} paymentStatus={mod6.oplatyMedicoverStatus} onChange={(v) => setMod6(d => ({ ...d, oplatyMedicover: v }))} disabled={!canOplaty} />
+          <TextField label="Opłaty za okres" value={mod6.oplatyMedicoverZaOkres} onChange={(v) => setMod6(d => ({ ...d, oplatyMedicoverZaOkres: v }))} disabled={!canOplaty} />
+          <DropField label="Status opłat" value={mod6.oplatyMedicoverStatus} options={[...PAYMENT_STATUS, "Nie dotyczy"]} onChange={(v) => setMod6(d => ({ ...d, oplatyMedicoverStatus: v }))} disabled={!canOplaty} />
         </ModuleCard>
 
         {/* ── Module 7: Umowy ── */}
+        {/* ── Module 7A: Umowy B2B (multi-entry) ── */}
         <ModuleCard
           title="7A. Umowy B2B"
           closed={c.mod7AClosed}
@@ -561,12 +775,23 @@ export default function PzkCasePage() {
           onSave={() => saveModule("mod7Umowy", mod7)}
           saving={savingMod === "mod7Umowy"}
         >
-          <TextField label="Kontrahent" value={mod7.b2bKontrahent} onChange={(v) => setMod7(d => ({ ...d, b2bKontrahent: v }))} disabled={!canB2B} />
-          <TextField label="Data rozpoczęcia umowy" value={mod7.b2bDataRozpoczecia} onChange={(v) => setMod7(d => ({ ...d, b2bDataRozpoczecia: v }))} disabled={!canB2B} type="date" />
-          <DropField label="Wypowiedzenie" value={mod7.b2bWypowiedzenie} options={B2B_WYP} onChange={(v) => setMod7(d => ({ ...d, b2bWypowiedzenie: v as never }))} disabled={!canB2B} />
-          <TextField label="Data wypowiedzenia" value={mod7.b2bDataWypowiedzenia} onChange={(v) => setMod7(d => ({ ...d, b2bDataWypowiedzenia: v }))} disabled={!canB2B} type="date" />
+          {(mod7.b2bEntries || []).map((entry, i) => (
+            <div key={i} className="mb-3 pb-3 border-b border-gray-100 last:border-0">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold text-gray-400">B2B #{i + 1}</span>
+                {canB2B && <button type="button" onClick={() => setMod7(d => ({ ...d, b2bEntries: (d.b2bEntries || []).filter((_, j) => j !== i) }))} className="text-xs text-red-400 hover:text-red-600">Usuń</button>}
+              </div>
+              <TextField label="Kontrahent" value={entry.kontrahent} onChange={(v) => setMod7(d => { const e = [...(d.b2bEntries || [])]; e[i] = { ...e[i], kontrahent: v }; return { ...d, b2bEntries: e }; })} disabled={!canB2B} />
+              <TextField label="Data rozpoczęcia" value={entry.dataRozpoczecia} onChange={(v) => setMod7(d => { const e = [...(d.b2bEntries || [])]; e[i] = { ...e[i], dataRozpoczecia: v }; return { ...d, b2bEntries: e }; })} disabled={!canB2B} type="date" />
+              <DropField label="Wypowiedzenie" value={entry.wypowiedzenie} options={B2B_WYP} onChange={(v) => setMod7(d => { const e = [...(d.b2bEntries || [])]; e[i] = { ...e[i], wypowiedzenie: v as never }; return { ...d, b2bEntries: e }; })} disabled={!canB2B} />
+              <TextField label="Data wypowiedzenia" value={entry.dataWypowiedzenia} onChange={(v) => setMod7(d => { const e = [...(d.b2bEntries || [])]; e[i] = { ...e[i], dataWypowiedzenia: v }; return { ...d, b2bEntries: e }; })} disabled={!canB2B} type="date" />
+            </div>
+          ))}
+          {(mod7.b2bEntries || []).length === 0 && <p className="text-xs text-gray-400 mb-2">Brak wpisów</p>}
+          {canB2B && <button type="button" onClick={() => setMod7(d => ({ ...d, b2bEntries: [...(d.b2bEntries || []), {}] }))} className="text-xs text-blue-600 hover:underline">+ Dodaj umowę B2B</button>}
         </ModuleCard>
 
+        {/* ── Module 7B: Umowy najmu (multi-entry) ── */}
         <ModuleCard
           title="7B. Umowy najmu"
           closed={c.mod7BClosed}
@@ -575,13 +800,23 @@ export default function PzkCasePage() {
           onSave={() => saveModule("mod7Umowy", mod7)}
           saving={savingMod === "mod7Umowy"}
         >
-          <TextField label="Umowa najmu" value={mod7.najmUmowa} onChange={(v) => setMod7(d => ({ ...d, najmUmowa: v }))} disabled={!canB2B} />
-          <TextField label="Data rozpoczęcia" value={mod7.najmDataRozpoczecia} onChange={(v) => setMod7(d => ({ ...d, najmDataRozpoczecia: v }))} disabled={!canB2B} type="date" />
-          <DropField label="Wypowiedzenie" value={mod7.najmWypowiedzenie} options={B2B_WYP} onChange={(v) => setMod7(d => ({ ...d, najmWypowiedzenie: v as never }))} disabled={!canB2B} />
-          <TextField label="Data wypowiedzenia" value={mod7.najmDataWypowiedzenia} onChange={(v) => setMod7(d => ({ ...d, najmDataWypowiedzenia: v }))} disabled={!canB2B} type="date" />
+          {(mod7.najmEntries || []).map((entry, i) => (
+            <div key={i} className="mb-3 pb-3 border-b border-gray-100 last:border-0">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold text-gray-400">Najem #{i + 1}</span>
+                {canB2B && <button type="button" onClick={() => setMod7(d => ({ ...d, najmEntries: (d.najmEntries || []).filter((_, j) => j !== i) }))} className="text-xs text-red-400 hover:text-red-600">Usuń</button>}
+              </div>
+              <TextField label="Umowa najmu" value={entry.umowa} onChange={(v) => setMod7(d => { const e = [...(d.najmEntries || [])]; e[i] = { ...e[i], umowa: v }; return { ...d, najmEntries: e }; })} disabled={!canB2B} />
+              <TextField label="Data rozpoczęcia" value={entry.dataRozpoczecia} onChange={(v) => setMod7(d => { const e = [...(d.najmEntries || [])]; e[i] = { ...e[i], dataRozpoczecia: v }; return { ...d, najmEntries: e }; })} disabled={!canB2B} type="date" />
+              <DropField label="Wypowiedzenie" value={entry.wypowiedzenie} options={B2B_WYP} onChange={(v) => setMod7(d => { const e = [...(d.najmEntries || [])]; e[i] = { ...e[i], wypowiedzenie: v as never }; return { ...d, najmEntries: e }; })} disabled={!canB2B} />
+              <TextField label="Data wypowiedzenia" value={entry.dataWypowiedzenia} onChange={(v) => setMod7(d => { const e = [...(d.najmEntries || [])]; e[i] = { ...e[i], dataWypowiedzenia: v }; return { ...d, najmEntries: e }; })} disabled={!canB2B} type="date" />
+            </div>
+          ))}
+          {(mod7.najmEntries || []).length === 0 && <p className="text-xs text-gray-400 mb-2">Brak wpisów</p>}
+          {canB2B && <button type="button" onClick={() => setMod7(d => ({ ...d, najmEntries: [...(d.najmEntries || []), {}] }))} className="text-xs text-blue-600 hover:underline">+ Dodaj umowę najmu</button>}
         </ModuleCard>
 
-        {/* ── Module 8: Inne ── */}
+        {/* ── Module 8: Inne (multi-entry) ── */}
         <ModuleCard
           title="8. Inne"
           closed={c.mod8Closed}
@@ -591,12 +826,32 @@ export default function PzkCasePage() {
           saving={savingMod === "mod8Inne"}
         >
           <p className="text-xs font-semibold text-gray-400 uppercase mb-2">8A — Bramki płatności</p>
-          <DropField label="Rodzaj" value={mod8.bramkiRodzaj} options={BRAMKI_RODZAJ} onChange={(v) => setMod8(d => ({ ...d, bramkiRodzaj: v as never }))} disabled={!canMod8} />
-          <DropField label="Status" value={mod8.bramkiStatus} options={BRAMKI_STATUS} onChange={(v) => setMod8(d => ({ ...d, bramkiStatus: v as never }))} disabled={!canMod8} />
+          {(mod8.bramkiEntries || []).map((entry, i) => (
+            <div key={i} className="mb-2 pb-2 border-b border-gray-100 last:border-0">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-gray-400">Bramka #{i + 1}</span>
+                {canMod8 && <button type="button" onClick={() => setMod8(d => ({ ...d, bramkiEntries: (d.bramkiEntries || []).filter((_, j) => j !== i) }))} className="text-xs text-red-400 hover:text-red-600">Usuń</button>}
+              </div>
+              <DropField label="Rodzaj" value={entry.rodzaj} options={BRAMKI_RODZAJ} onChange={(v) => setMod8(d => { const e = [...(d.bramkiEntries || [])]; e[i] = { ...e[i], rodzaj: v as never }; return { ...d, bramkiEntries: e }; })} disabled={!canMod8} />
+              <DropField label="Status" value={entry.status} options={BRAMKI_STATUS} onChange={(v) => setMod8(d => { const e = [...(d.bramkiEntries || [])]; e[i] = { ...e[i], status: v as never }; return { ...d, bramkiEntries: e }; })} disabled={!canMod8} />
+            </div>
+          ))}
+          {(mod8.bramkiEntries || []).length === 0 && <p className="text-xs text-gray-400 mb-1">Brak wpisów</p>}
+          {canMod8 && <button type="button" onClick={() => setMod8(d => ({ ...d, bramkiEntries: [...(d.bramkiEntries || []), {}] }))} className="text-xs text-blue-600 hover:underline mb-3 block">+ Dodaj bramkę</button>}
 
           <p className="text-xs font-semibold text-gray-400 uppercase mt-3 mb-2">8B — Domena/Hosting</p>
-          <DropField label="Cesja" value={mod8.domenaRodzaj} options={DOMENA_RODZAJ} onChange={(v) => setMod8(d => ({ ...d, domenaRodzaj: v as never }))} disabled={!canMod8} />
-          <DropField label="Status" value={mod8.domenaStatus} options={DOMENA_STATUS} onChange={(v) => setMod8(d => ({ ...d, domenaStatus: v as never }))} disabled={!canMod8} />
+          {(mod8.domenaEntries || []).map((entry, i) => (
+            <div key={i} className="mb-2 pb-2 border-b border-gray-100 last:border-0">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-gray-400">Domena #{i + 1}</span>
+                {canMod8 && <button type="button" onClick={() => setMod8(d => ({ ...d, domenaEntries: (d.domenaEntries || []).filter((_, j) => j !== i) }))} className="text-xs text-red-400 hover:text-red-600">Usuń</button>}
+              </div>
+              <DropField label="Cesja" value={entry.rodzaj} options={DOMENA_RODZAJ} onChange={(v) => setMod8(d => { const e = [...(d.domenaEntries || [])]; e[i] = { ...e[i], rodzaj: v as never }; return { ...d, domenaEntries: e }; })} disabled={!canMod8} />
+              <DropField label="Status" value={entry.status} options={DOMENA_STATUS} onChange={(v) => setMod8(d => { const e = [...(d.domenaEntries || [])]; e[i] = { ...e[i], status: v as never }; return { ...d, domenaEntries: e }; })} disabled={!canMod8} />
+            </div>
+          ))}
+          {(mod8.domenaEntries || []).length === 0 && <p className="text-xs text-gray-400 mb-1">Brak wpisów</p>}
+          {canMod8 && <button type="button" onClick={() => setMod8(d => ({ ...d, domenaEntries: [...(d.domenaEntries || []), {}] }))} className="text-xs text-blue-600 hover:underline">+ Dodaj domenę</button>}
         </ModuleCard>
 
       </div>

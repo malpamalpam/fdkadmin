@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
   const cases = await prisma.pzkCase.findMany({
     where: {
       withdrawnFromNotice: false,
+      caseClosed: false,
       cooperationEndsAt: { gte: monthStart, lt: monthEnd },
       ...(isDay15 ? { emailMid15Sent: false } : { emailFinal28Sent: false }),
     },

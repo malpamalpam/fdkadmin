@@ -23,14 +23,16 @@ export type FieldColor = "green" | "yellow" | "red" | "gray" | null;
 
 const GREEN_VALUES = new Set([
   "Oryginał", "Komplet", "Dezaktywowane", "Wysłane", "Zamknięte",
-  "Niepotrzebne", "Podpisana i wysłana", "Nie posiada PESEL",
+  "Niepotrzebne", "Podpisana i wysłana", "Beneficjent nie posiada PESEL",
   "Opłacono", "Opłacono - z subkonta", "Opłacono - wpłata zewnętrzna", "Opłacono - gotówka",
+  "Odmowa", // positive: beneficjent refused electronic form, paper doc in CRM
 ]);
 const YELLOW_VALUES = new Set([
   "Skan", "Do uzupełnienia", "Do wysłania", "Aktywne", "Do wpisania",
 ]);
 const RED_VALUES = new Set([
-  "Nie uzyskano", "Nie opłacono", "Odmowa", "Potwierdzenie - brak",
+  "Nie uzyskano", "Nie opłacono", "Potwierdzenie - brak",
+  "Brak adresu zamieszkania", "Brak telefonu",
 ]);
 const GRAY_VALUES = new Set(["Nie dotyczy"]);
 
@@ -38,6 +40,7 @@ export function getFieldColor(value: string | undefined | null): FieldColor {
   if (!value) return null;
   if (value.startsWith("Nie uzyskano")) return "red";
   if (value.startsWith("Nie opłacono")) return "red";
+  if (value.startsWith("Brak ")) return "red"; // "Brak adresu...", "Brak telefonu"
   if (GREEN_VALUES.has(value)) return "green";
   if (YELLOW_VALUES.has(value)) return "yellow";
   if (RED_VALUES.has(value)) return "red";
@@ -69,13 +72,21 @@ export interface Mod2Admin {
   wypowiedzenie?: "Oryginał" | "Skan" | "Do uzupełnienia" | "Nie uzyskano";
   dataStartuCRM?: string; // ISO date
   // 2B
-  pesel?: "Do wpisania" | "Komplet" | "Do uzupełnienia" | "Beneficjent nie posiada PESEL";
-  daneKontaktowe?: "Do wpisania" | "Komplet" | "Do uzupełnienia" | "Brak adresu zamieszkania" | "Brak telefonu";
-  branza?: Branza;
+  pesel?: string;
+  peselCustomText?: string;
+  peselCustomColor?: FieldColor;
+  daneKontaktowe?: string;
+  daneKontaktoweCustomText?: string;
+  daneKontaktoweCustomColor?: FieldColor;
+  branza?: string;
+  branzaCustomText?: string;
+  branzaCustomColor?: FieldColor;
   umowa?: DocumentStatus;
   rodo?: DocumentStatus;
   oswiadczenieTworcy?: DocumentStatus;
-  krk?: DocumentStatus;
+  krk?: string;
+  krkCustomText?: string;
+  krkCustomColor?: FieldColor;
   oswiadczenieElektroniczne?: DocumentStatus;
   // 2C
   benefitSystem?: AccessStatus;
@@ -88,13 +99,19 @@ export interface Mod2Admin {
 // ─── Module 3: Kadry ──────────────────────────────────────────────────────────
 
 export interface Mod3Kadry {
-  // 3A
+  // 3A — per-field comments
   brakiKadryDok?: string; // "Do wpisania" | "Komplet" | "Nie uzyskano:…"
+  brakiKadryDokKomentarz?: string;
   brakiKadryDokUzup?: string; // free text of what was completed
+  brakiKadryDokUzupKomentarz?: string;
   brakiKadryPlatnosci?: string; // amount
+  brakiKadryPlatnosciKomentarz?: string;
   brakiKadryPlatnosciOplatyZa?: string;
+  brakiKadryPlatnosciOplatyZaKomentarz?: string;
   brakiKadryPlatnosciStatus?: PaymentStatus;
+  brakiKadryPlatnosciStatusKomentarz?: string;
   legitymacja?: string; // "Do wpisania" | "Komplet" | "Nie uzyskano:…"
+  legitymacjaKomentarz?: string;
   // 3B
   brakiUZPlatnosci?: string; // amount or "Nie dotyczy"
   brakiUZPlatnosciOplatyZa?: string;
@@ -137,22 +154,47 @@ export interface Mod6Platnosci {
   oplatyWspolpraca?: string; // amount
   oplatyWspolpracaZaOkres?: string;
   oplatyWspolpracaStatus?: PaymentStatus;
-  // 6B
-  oplatyBenefit?: string; // amount or "Nie dotyczy"
-  oplatyBenefitZaOkres?: string; // "Nie dotyczy" if benefit ND
-  oplatyBenefitStatus?: PaymentStatus; // "Nie dotyczy" if benefit ND
+  // 6B — Multisport
+  oplatyMultisport?: string; // amount or "Nie dotyczy"
+  oplatyMultisportZaOkres?: string;
+  oplatyMultisportStatus?: PaymentStatus;
+  // 6C — Medicover
+  oplatyMedicover?: string; // amount or "Nie dotyczy"
+  oplatyMedicoverZaOkres?: string;
+  oplatyMedicoverStatus?: PaymentStatus;
+  // Legacy fields (backward compat — will be migrated)
+  oplatyBenefit?: string;
+  oplatyBenefitZaOkres?: string;
+  oplatyBenefitStatus?: PaymentStatus;
 }
 
 // ─── Module 7: Umowy ──────────────────────────────────────────────────────────
 
+export interface B2BEntry {
+  kontrahent?: string;
+  dataRozpoczecia?: string;
+  wypowiedzenie?: "Wysłane" | "Do wysłania" | "Niepotrzebne";
+  dataWypowiedzenia?: string;
+}
+
+export interface NajemEntry {
+  umowa?: string;
+  dataRozpoczecia?: string;
+  wypowiedzenie?: "Wysłane" | "Do wysłania" | "Niepotrzebne";
+  dataWypowiedzenia?: string;
+}
+
 export interface Mod7Umowy {
-  // 7A B2B
-  b2bKontrahent?: string; // text or "Nie dotyczy"
-  b2bDataRozpoczecia?: string; // ISO date
+  // 7A B2B — multi-entry
+  b2bEntries?: B2BEntry[];
+  // 7B Najem — multi-entry
+  najmEntries?: NajemEntry[];
+  // Legacy single-entry fields (backward compat)
+  b2bKontrahent?: string;
+  b2bDataRozpoczecia?: string;
   b2bWypowiedzenie?: "Wysłane" | "Do wysłania" | "Niepotrzebne";
   b2bDataWypowiedzenia?: string;
-  // 7B Najem
-  najmUmowa?: string; // text or "Nie dotyczy"
+  najmUmowa?: string;
   najmDataRozpoczecia?: string;
   najmWypowiedzenie?: "Wysłane" | "Do wysłania" | "Niepotrzebne";
   najmDataWypowiedzenia?: string;
@@ -160,11 +202,24 @@ export interface Mod7Umowy {
 
 // ─── Module 8: Inne ───────────────────────────────────────────────────────────
 
+export interface BramkaEntry {
+  rodzaj?: "PayU" | "Stripe" | "inne" | "Nie dotyczy";
+  status?: "Aktywne" | "Zamknięte" | "Potwierdzenie - dostarczone" | "Potwierdzenie - brak";
+}
+
+export interface DomenaEntry {
+  rodzaj?: "Cesja" | "Nie dotyczy";
+  status?: "Do uzupełnienia" | "Podpisana i wysłana" | "Niepotrzebne";
+}
+
 export interface Mod8Inne {
-  // 8A Bramki płatności
+  // 8A Bramki płatności — multi-entry
+  bramkiEntries?: BramkaEntry[];
+  // 8B Domena/Hosting — multi-entry
+  domenaEntries?: DomenaEntry[];
+  // Legacy single-entry fields (backward compat)
   bramkiRodzaj?: "PayU" | "Stripe" | "inne" | "Nie dotyczy";
   bramkiStatus?: "Aktywne" | "Zamknięte" | "Potwierdzenie - dostarczone" | "Potwierdzenie - brak";
-  // 8B Domena/Hosting
   domenaRodzaj?: "Cesja" | "Nie dotyczy";
   domenaStatus?: "Do uzupełnienia" | "Podpisana i wysłana" | "Niepotrzebne";
 }
@@ -183,6 +238,7 @@ export interface PzkCase {
   responsibleWorker: string | null;
   cooperationEndsAt: string | null;
   withdrawnFromNotice: boolean;
+  caseClosed: boolean;
   createdById: string;
   createdByName: string;
   mod2Admin: Mod2Admin | null;
@@ -247,8 +303,13 @@ export function collectBraki(
     if (col === "yellow" || col === "red") braki.push(`${label}: ${value}`);
   }
 
-  function addAmount(label: string, amount: string | undefined) {
+  function addAmount(label: string, amount: string | undefined, paymentStatus?: string) {
     if (!amount || amount === "Nie dotyczy") return;
+    // If payment status is green, skip (already paid)
+    if (paymentStatus) {
+      const sc = getFieldColor(paymentStatus);
+      if (sc === "green") return;
+    }
     const n = parseFloat(amount.replace(",", "."));
     if (!isNaN(n) && n > 0) braki.push(`${label}: ${amount} zł`);
   }
@@ -275,10 +336,10 @@ export function collectBraki(
     const m = (c.mod3Kadry || {}) as Mod3Kadry;
     if (m.brakiKadryDok && m.brakiKadryDok !== "Komplet")
       braki.push(`Braki HR/Kadry – dokumenty: ${m.brakiKadryDok}`);
-    addAmount("Braki HR/Kadry – płatności", m.brakiKadryPlatnosci);
+    addAmount("Braki HR/Kadry – płatności", m.brakiKadryPlatnosci, m.brakiKadryPlatnosciStatus);
     addYR("Status opłat kadrowych", m.brakiKadryPlatnosciStatus);
     if (m.legitymacja) addYR("Legitymacja", m.legitymacja);
-    if (m.brakiUZPlatnosci !== "Nie dotyczy") addAmount("Braki UZ – płatności", m.brakiUZPlatnosci);
+    if (m.brakiUZPlatnosci !== "Nie dotyczy") addAmount("Braki UZ – płatności", m.brakiUZPlatnosci, m.brakiUZPlatnosciStatus);
     addYR("Status opłat UZ", m.brakiUZPlatnosciStatus);
     addYR("ZWUA", m.zwua);
   }
@@ -288,7 +349,7 @@ export function collectBraki(
     const m = (c.mod4Ksieg || {}) as Mod4Ksieg;
     if (m.brakiKsiegDok && m.brakiKsiegDok !== "Komplet")
       braki.push(`Braki księgowość – dokumenty: ${m.brakiKsiegDok}`);
-    addAmount("Braki księgowość – płatności", m.brakiKsiegPlatnosci);
+    addAmount("Braki księgowość – płatności", m.brakiKsiegPlatnosci, m.brakiKsiegPlatnosciStatus);
     addYR("Status opłat księgowych", m.brakiKsiegPlatnosciStatus);
   }
 
@@ -297,31 +358,50 @@ export function collectBraki(
     const m = (c.mod5Legal || {}) as Mod5Legal;
     if (m.brakiLegalDok && m.brakiLegalDok !== "Komplet")
       braki.push(`Braki legalizacja – dokumenty: ${m.brakiLegalDok}`);
-    addAmount("Braki legalizacja – płatności", m.brakiLegalPlatnosci);
+    addAmount("Braki legalizacja – płatności", m.brakiLegalPlatnosci, m.brakiLegalPlatnosciStatus);
     addYR("Status opłat legalizacji", m.brakiLegalPlatnosciStatus);
   }
 
   // mod6Platnosci
   if (isAdminLike || canEditModule(userDept, userRole, "mod6")) {
     const m = (c.mod6Platnosci || {}) as Mod6Platnosci;
-    addAmount("Opłaty za współpracę", m.oplatyWspolpraca);
+    addAmount("Opłaty za współpracę", m.oplatyWspolpraca, m.oplatyWspolpracaStatus);
     addYR("Status opłat za współpracę", m.oplatyWspolpracaStatus);
-    if (m.oplatyBenefit !== "Nie dotyczy") addAmount("Opłaty Benefit", m.oplatyBenefit);
-    if (m.oplatyBenefitStatus !== "Nie dotyczy") addYR("Status opłat Benefit", m.oplatyBenefitStatus);
+    if (m.oplatyMultisport !== "Nie dotyczy") addAmount("Opłaty Multisport", m.oplatyMultisport, m.oplatyMultisportStatus);
+    if (m.oplatyMultisportStatus !== "Nie dotyczy") addYR("Status opłat Multisport", m.oplatyMultisportStatus);
+    if (m.oplatyMedicover !== "Nie dotyczy") addAmount("Opłaty Medicover", m.oplatyMedicover, m.oplatyMedicoverStatus);
+    if (m.oplatyMedicoverStatus !== "Nie dotyczy") addYR("Status opłat Medicover", m.oplatyMedicoverStatus);
+    // Legacy fallback
+    if (m.oplatyBenefit && !m.oplatyMultisport && !m.oplatyMedicover) {
+      if (m.oplatyBenefit !== "Nie dotyczy") addAmount("Opłaty Benefit", m.oplatyBenefit, m.oplatyBenefitStatus);
+      if (m.oplatyBenefitStatus && m.oplatyBenefitStatus !== "Nie dotyczy") addYR("Status opłat Benefit", m.oplatyBenefitStatus);
+    }
   }
 
   // mod7Umowy
   if (isAdminLike || canEditModule(userDept, userRole, "mod7")) {
     const m = (c.mod7Umowy || {}) as Mod7Umowy;
-    if (m.b2bKontrahent !== "Nie dotyczy") addYR("Wypowiedzenie B2B", m.b2bWypowiedzenie);
-    if (m.najmUmowa !== "Nie dotyczy") addYR("Wypowiedzenie najmu", m.najmWypowiedzenie);
+    // Multi-entry B2B
+    if (m.b2bEntries?.length) {
+      m.b2bEntries.forEach((e, i) => { if (e.kontrahent !== "Nie dotyczy") addYR(`Wypowiedzenie B2B #${i+1}`, e.wypowiedzenie); });
+    } else if (m.b2bKontrahent !== "Nie dotyczy") addYR("Wypowiedzenie B2B", m.b2bWypowiedzenie);
+    // Multi-entry Najem
+    if (m.najmEntries?.length) {
+      m.najmEntries.forEach((e, i) => { if (e.umowa !== "Nie dotyczy") addYR(`Wypowiedzenie najmu #${i+1}`, e.wypowiedzenie); });
+    } else if (m.najmUmowa !== "Nie dotyczy") addYR("Wypowiedzenie najmu", m.najmWypowiedzenie);
   }
 
   // mod8Inne
   if (isAdminLike || canEditModule(userDept, userRole, "mod8")) {
     const m = (c.mod8Inne || {}) as Mod8Inne;
-    if (m.bramkiRodzaj !== "Nie dotyczy") addYR("Status bramki płatności", m.bramkiStatus);
-    if (m.domenaRodzaj !== "Nie dotyczy") addYR("Status domena/hosting", m.domenaStatus);
+    // Multi-entry bramki
+    if (m.bramkiEntries?.length) {
+      m.bramkiEntries.forEach((e, i) => { if (e.rodzaj !== "Nie dotyczy") addYR(`Status bramki #${i+1}`, e.status); });
+    } else if (m.bramkiRodzaj !== "Nie dotyczy") addYR("Status bramki płatności", m.bramkiStatus);
+    // Multi-entry domeny
+    if (m.domenaEntries?.length) {
+      m.domenaEntries.forEach((e, i) => { if (e.rodzaj !== "Nie dotyczy") addYR(`Status domena #${i+1}`, e.status); });
+    } else if (m.domenaRodzaj !== "Nie dotyczy") addYR("Status domena/hosting", m.domenaStatus);
   }
 
   return braki;

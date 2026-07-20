@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
       responsibleWorker: true,
       cooperationEndsAt: true,
       withdrawnFromNotice: true,
+      caseClosed: true,
       createdByName: true,
       emailInitialSent: true,
       emailMid15Sent: true,

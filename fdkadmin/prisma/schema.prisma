@@ -196,6 +196,7 @@ model PzkCase {
   // Key date driving automations
   cooperationEndsAt   DateTime?
   withdrawnFromNotice Boolean       @default(false)  // "Rezygnacja z wypowiedzenia"
+  caseClosed          Boolean       @default(false)  // "Zamknij sprawę" — blocks editing & notifications
 
   // Creator
   createdById         String
