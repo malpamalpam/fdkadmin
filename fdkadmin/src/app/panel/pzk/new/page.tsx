@@ -43,12 +43,15 @@ export default function NewPzkPage() {
         body: JSON.stringify({ ...form, panel: "PZK" }),
       });
       if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Błąd zapisu");
+        let msg = "Nie udało się utworzyć sprawy. Spróbuj ponownie.";
+        try { const data = await res.json(); if (data.error) msg = data.error; } catch {}
+        setError(msg);
         return;
       }
       const created = await res.json();
       router.push(`/panel/pzk/${created.id}`);
+    } catch {
+      setError("Błąd połączenia z serwerem. Spróbuj ponownie.");
     } finally {
       setSaving(false);
     }

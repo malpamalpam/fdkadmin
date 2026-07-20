@@ -143,6 +143,7 @@ export async function PATCH(
 
   const oldData = (existing as Record<string, unknown>)[moduleKey];
 
+  try {
   // Compute which close flags to auto-set
   const autoClose = computeAutoClose(moduleKey, moduleData);
   // Only set flags that are true AND not already true on existing record
@@ -178,4 +179,8 @@ export async function PATCH(
   await prisma.pzkHistory.createMany({ data: historyEntries });
 
   return NextResponse.json(updated);
+  } catch (err) {
+    console.error("PZK module PATCH error:", err);
+    return NextResponse.json({ error: "Błąd zapisu modułu" }, { status: 500 });
+  }
 }
