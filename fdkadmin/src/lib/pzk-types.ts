@@ -26,9 +26,11 @@ const GREEN_VALUES = new Set([
   "Niepotrzebne", "Podpisana i wysłana", "Beneficjent nie posiada PESEL",
   "Opłacono", "Opłacono - z subkonta", "Opłacono - wpłata zewnętrzna", "Opłacono - gotówka",
   "Odmowa", // positive: beneficjent refused electronic form, paper doc in CRM
+  "Na opłaty", "Na VAT", // mBank status — funds allocated
 ]);
 const YELLOW_VALUES = new Set([
   "Skan", "Do uzupełnienia", "Do wysłania", "Aktywne", "Do wpisania",
+  "Do wyzerowania", "Do wyjaśnienia",
 ]);
 const RED_VALUES = new Set([
   "Nie uzyskano", "Nie opłacono", "Potwierdzenie - brak",
@@ -38,7 +40,7 @@ const GRAY_VALUES = new Set(["Nie dotyczy"]);
 
 export function getFieldColor(value: string | undefined | null): FieldColor {
   if (!value) return null;
-  if (value.startsWith("Nie uzyskano")) return "red";
+  if (value.startsWith("Nie uzyskano")) return "red"; // includes "Nie uzyskano spłaty"
   if (value.startsWith("Nie opłacono")) return "red";
   if (value.startsWith("Brak ")) return "red"; // "Brak adresu...", "Brak telefonu"
   if (GREEN_VALUES.has(value)) return "green";
@@ -60,7 +62,9 @@ export type PaymentStatus =
   | "Opłacono - z subkonta"
   | "Opłacono - wpłata zewnętrzna"
   | "Opłacono - gotówka"
-  | string; // "Nie opłacono:…"
+  | "Nie opłacono: proszę uzupełnić"
+  | "Nie uzyskano spłaty"
+  | string;
 
 export type Branza =
   | "Lektor" | "IT" | "E-commerce" | "Grafik" | "Architekt"
@@ -82,17 +86,23 @@ export interface Mod2Admin {
   branzaCustomText?: string;
   branzaCustomColor?: FieldColor;
   umowa?: DocumentStatus;
+  umowaKomentarz?: string;
   rodo?: DocumentStatus;
+  rodoKomentarz?: string;
   oswiadczenieTworcy?: DocumentStatus;
+  oswiadczenieTworcyKomentarz?: string;
   krk?: string;
   krkCustomText?: string;
   krkCustomColor?: FieldColor;
+  krkKomentarz?: string;
   oswiadczenieElektroniczne?: DocumentStatus;
+  oswiadczenieElektroniczneKomentarz?: string;
   // 2C
   benefitSystem?: AccessStatus;
   kontoMBank?: AccessStatus;
   kontoCRM?: AccessStatus;
-  biezaceSwrodkiMBank?: string; // amount as string; 0 → green, >0 → yellow
+  biezaceSwrodkiMBank?: string; // amount as string
+  biezaceSwrodkiStatus?: string; // "Do wyzerowania" | "Na opłaty" | "Na VAT" | "Do wyjaśnienia"
   biezaceSwrodkiKomentarz?: string;
 }
 
@@ -109,6 +119,8 @@ export interface Mod3Kadry {
   brakiKadryPlatnosciOplatyZa?: string;
   brakiKadryPlatnosciOplatyZaKomentarz?: string;
   brakiKadryPlatnosciStatus?: PaymentStatus;
+  brakiKadryPlatnosciNieOplacono?: string; // remaining amount if partial
+  brakiKadryPlatnosciNieUzyskano?: string; // permanently lost amount
   brakiKadryPlatnosciStatusKomentarz?: string;
   legitymacja?: string; // "Do wpisania" | "Komplet" | "Nie uzyskano:…"
   legitymacjaKomentarz?: string;
@@ -116,6 +128,8 @@ export interface Mod3Kadry {
   brakiUZPlatnosci?: string; // amount or "Nie dotyczy"
   brakiUZPlatnosciOplatyZa?: string;
   brakiUZPlatnosciStatus?: PaymentStatus;
+  brakiUZPlatnosciNieOplacono?: string;
+  brakiUZPlatnosciNieUzyskano?: string;
   zwua?: "Wysłane" | "Do uzupełnienia";
   dataZwua?: string; // ISO date
   komentarzKadrowy?: string;
@@ -131,6 +145,8 @@ export interface Mod4Ksieg {
   brakiKsiegPlatnosci?: string; // amount
   brakiKsiegPlatnosciOplatyZa?: string;
   brakiKsiegPlatnosciStatus?: PaymentStatus;
+  brakiKsiegPlatnosciNieOplacono?: string;
+  brakiKsiegPlatnosciNieUzyskano?: string;
   komentarzKsieg?: string;
 }
 
@@ -144,6 +160,8 @@ export interface Mod5Legal {
   brakiLegalPlatnosci?: string;
   brakiLegalPlatnosciOplatyZa?: string;
   brakiLegalPlatnosciStatus?: PaymentStatus;
+  brakiLegalPlatnosciNieOplacono?: string;
+  brakiLegalPlatnosciNieUzyskano?: string;
   komentarzLegal?: string;
 }
 
@@ -409,6 +427,63 @@ export function collectBraki(
 
 // ─── Status color helpers for amount fields ───────────────────────────────────
 
+// ─── Color counting for summary ─────────────────────────────────────────────
+
+export interface ColorCounts {
+  green: number; yellow: number; red: number; gray: number;
+  total: number; undefined: number;
+}
+
+export function countFieldColors(c: PzkCase): ColorCounts {
+  const counts: ColorCounts = { green: 0, yellow: 0, red: 0, gray: 0, total: 0, undefined: 0 };
+  function check(val: string | undefined | null) {
+    counts.total++;
+    const col = getFieldColor(val);
+    if (!col) { counts.undefined++; return; }
+    counts[col]++;
+  }
+  function checkAmount(amount: string | undefined, status?: string) {
+    counts.total++;
+    const col = getAmountColor(amount, status);
+    if (!col) { counts.undefined++; return; }
+    counts[col]++;
+  }
+  const m2 = (c.mod2Admin || {}) as Mod2Admin;
+  check(m2.wypowiedzenie); check(m2.pesel); check(m2.daneKontaktowe);
+  check(m2.umowa); check(m2.rodo); check(m2.oswiadczenieTworcy);
+  check(m2.krk); check(m2.oswiadczenieElektroniczne);
+  check(m2.benefitSystem); check(m2.kontoMBank); check(m2.kontoCRM);
+  checkAmount(m2.biezaceSwrodkiMBank); check(m2.biezaceSwrodkiStatus);
+  const m3 = (c.mod3Kadry || {}) as Mod3Kadry;
+  check(m3.brakiKadryPlatnosciStatus); check(m3.legitymacja);
+  check(m3.brakiUZPlatnosciStatus); check(m3.zwua);
+  checkAmount(m3.brakiKadryPlatnosci, m3.brakiKadryPlatnosciStatus);
+  checkAmount(m3.brakiUZPlatnosci, m3.brakiUZPlatnosciStatus);
+  const m4 = (c.mod4Ksieg || {}) as Mod4Ksieg;
+  check(m4.brakiKsiegPlatnosciStatus);
+  checkAmount(m4.brakiKsiegPlatnosci, m4.brakiKsiegPlatnosciStatus);
+  const m5 = (c.mod5Legal || {}) as Mod5Legal;
+  check(m5.brakiLegalPlatnosciStatus);
+  checkAmount(m5.brakiLegalPlatnosci, m5.brakiLegalPlatnosciStatus);
+  const m6 = (c.mod6Platnosci || {}) as Mod6Platnosci;
+  check(m6.oplatyWspolpracaStatus);
+  check(m6.oplatyMultisportStatus); check(m6.oplatyMedicoverStatus);
+  checkAmount(m6.oplatyWspolpraca, m6.oplatyWspolpracaStatus);
+  const m7 = (c.mod7Umowy || {}) as Mod7Umowy;
+  if (m7.b2bEntries?.length) m7.b2bEntries.forEach(e => check(e.wypowiedzenie));
+  else { check(m7.b2bWypowiedzenie); }
+  if (m7.najmEntries?.length) m7.najmEntries.forEach(e => check(e.wypowiedzenie));
+  else { check(m7.najmWypowiedzenie); }
+  const m8 = (c.mod8Inne || {}) as Mod8Inne;
+  if (m8.bramkiEntries?.length) m8.bramkiEntries.forEach(e => check(e.status));
+  else { check(m8.bramkiStatus); }
+  if (m8.domenaEntries?.length) m8.domenaEntries.forEach(e => check(e.status));
+  else { check(m8.domenaStatus); }
+  return counts;
+}
+
+// ─── Status color helpers for amount fields ───────────────────────────────────
+
 export function getAmountColor(
   amount: string | undefined,
   paymentStatus?: PaymentStatus
@@ -419,6 +494,7 @@ export function getAmountColor(
     const sc = getFieldColor(paymentStatus);
     if (sc === "green") return "green";
     if (paymentStatus.startsWith("Nie opłacono")) return "red";
+    if (paymentStatus.startsWith("Nie uzyskano")) return "red";
   }
   const n = parseFloat(amount.replace(",", "."));
   if (isNaN(n)) return null;

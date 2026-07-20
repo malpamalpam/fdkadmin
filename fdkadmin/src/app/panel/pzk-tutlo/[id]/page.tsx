@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   PzkCase, PzkClientType, Mod2Admin, Mod3Kadry, Mod4Ksieg, Mod5Legal,
-  Mod6Platnosci, Mod7Umowy, Mod8Inne, B2BEntry, NajemEntry, BramkaEntry, DomenaEntry,
+  Mod6Platnosci, Mod7Umowy, Mod8Inne,
   PZK_CLIENT_TYPE_LABELS, getFieldColor, getAmountColor, canEditModule, FieldColor,
-  collectBraki,
+  collectBraki, countFieldColors,
 } from "@/lib/pzk-types";
 import { useUser } from "@/lib/user-context";
 
@@ -175,50 +175,37 @@ function CommentField({ value, onChange, disabled }: { value: string | undefined
   );
 }
 
-// ─── Color summary helper ─────────────────────────────────────────────────────
+// ─── Payment status with partial amount fields ──────────────────────────────
 
-function countColors(c: PzkCase): { green: number; yellow: number; red: number; gray: number } {
-  const counts = { green: 0, yellow: 0, red: 0, gray: 0 };
-  function check(val: string | undefined | null) {
-    const col = getFieldColor(val);
-    if (col && col in counts) counts[col as keyof typeof counts]++;
-  }
-  function checkAmount(amount: string | undefined, status?: string) {
-    const col = getAmountColor(amount, status);
-    if (col && col in counts) counts[col as keyof typeof counts]++;
-  }
-  const m2 = (c.mod2Admin || {}) as Mod2Admin;
-  check(m2.wypowiedzenie); check(m2.pesel); check(m2.daneKontaktowe);
-  check(m2.umowa); check(m2.rodo); check(m2.oswiadczenieTworcy);
-  check(m2.krk); check(m2.oswiadczenieElektroniczne);
-  check(m2.benefitSystem); check(m2.kontoMBank); check(m2.kontoCRM);
-  checkAmount(m2.biezaceSwrodkiMBank);
-  const m3 = (c.mod3Kadry || {}) as Mod3Kadry;
-  check(m3.brakiKadryPlatnosciStatus); check(m3.legitymacja);
-  check(m3.brakiUZPlatnosciStatus); check(m3.zwua);
-  checkAmount(m3.brakiKadryPlatnosci, m3.brakiKadryPlatnosciStatus);
-  checkAmount(m3.brakiUZPlatnosci, m3.brakiUZPlatnosciStatus);
-  const m4 = (c.mod4Ksieg || {}) as Mod4Ksieg;
-  check(m4.brakiKsiegPlatnosciStatus);
-  checkAmount(m4.brakiKsiegPlatnosci, m4.brakiKsiegPlatnosciStatus);
-  const m5 = (c.mod5Legal || {}) as Mod5Legal;
-  check(m5.brakiLegalPlatnosciStatus);
-  checkAmount(m5.brakiLegalPlatnosci, m5.brakiLegalPlatnosciStatus);
-  const m6 = (c.mod6Platnosci || {}) as Mod6Platnosci;
-  check(m6.oplatyWspolpracaStatus);
-  check(m6.oplatyMultisportStatus); check(m6.oplatyMedicoverStatus);
-  checkAmount(m6.oplatyWspolpraca, m6.oplatyWspolpracaStatus);
-  const m7 = (c.mod7Umowy || {}) as Mod7Umowy;
-  if (m7.b2bEntries?.length) m7.b2bEntries.forEach(e => check(e.wypowiedzenie));
-  else check(m7.b2bWypowiedzenie);
-  if (m7.najmEntries?.length) m7.najmEntries.forEach(e => check(e.wypowiedzenie));
-  else check(m7.najmWypowiedzenie);
-  const m8 = (c.mod8Inne || {}) as Mod8Inne;
-  if (m8.bramkiEntries?.length) m8.bramkiEntries.forEach(e => check(e.status));
-  else check(m8.bramkiStatus);
-  if (m8.domenaEntries?.length) m8.domenaEntries.forEach(e => check(e.status));
-  else check(m8.domenaStatus);
-  return counts;
+function PaymentStatusField({
+  label, value, nieOplacono, nieUzyskano, options, onChange, onNieOplaconoChange, onNieUzyskanoChange, disabled,
+}: {
+  label: string; value: string | undefined; nieOplacono?: string; nieUzyskano?: string;
+  options: string[]; onChange: (v: string) => void;
+  onNieOplaconoChange?: (v: string) => void; onNieUzyskanoChange?: (v: string) => void;
+  disabled?: boolean;
+}) {
+  const isNieOplacono = value?.startsWith("Nie opłacono");
+  const isNieUzyskano = value?.startsWith("Nie uzyskano");
+  return (
+    <div className="py-1.5 border-b border-gray-100 last:border-0">
+      <DropField label={label} value={value} options={options} onChange={onChange} disabled={disabled} />
+      {isNieOplacono && !disabled && (
+        <div className="flex items-center gap-2 ml-5 mt-1">
+          <ColorDot color="yellow" />
+          <span className="text-xs text-gray-500 w-36">Pozostała kwota</span>
+          <input type="text" className="text-sm border rounded px-2 py-0.5 w-24" value={nieOplacono || ""} onChange={(e) => onNieOplaconoChange?.(e.target.value)} placeholder="0 zł" />
+        </div>
+      )}
+      {isNieUzyskano && !disabled && (
+        <div className="flex items-center gap-2 ml-5 mt-1">
+          <ColorDot color="red" />
+          <span className="text-xs text-gray-500 w-36">Kwota stracona</span>
+          <input type="text" className="text-sm border rounded px-2 py-0.5 w-24" value={nieUzyskano || ""} onChange={(e) => onNieUzyskanoChange?.(e.target.value)} placeholder="0 zł" />
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Module card ──────────────────────────────────────────────────────────────
@@ -268,7 +255,8 @@ const DOC_STATUS_NO_ND = ["Oryginał", "Skan", "Do uzupełnienia", "Nie uzyskano
 const DOC_STATUS_ELEKTR = ["Oryginał", "Skan", "Do uzupełnienia", "Nie uzyskano", "Nie dotyczy", "Odmowa"]; // Oświadczenie elektr. — Odmowa = green
 const KRK_STATUS = ["Oryginał", "Skan", "Do uzupełnienia", "Nie uzyskano", "Nie dotyczy"];
 const ACCESS_STATUS = ["Aktywne", "Dezaktywowane", "Nie dotyczy"];
-const PAYMENT_STATUS = ["Komplet", "Opłacono - z subkonta", "Opłacono - wpłata zewnętrzna", "Opłacono - gotówka", "Nie opłacono: proszę uzupełnić"];
+const PAYMENT_STATUS = ["Komplet", "Opłacono - z subkonta", "Opłacono - wpłata zewnętrzna", "Opłacono - gotówka", "Nie opłacono: proszę uzupełnić", "Nie uzyskano spłaty"];
+const MBANK_STATUS = ["Do wyzerowania", "Na opłaty", "Na VAT", "Do wyjaśnienia"];
 const BRANZE = ["Lektor", "IT", "E-commerce", "Grafik", "Architekt", "Fotograf", "Tłumacz", "Coaching", "Consulting", "inne", "Do uzupełnienia"];
 const PESEL_STATUS = ["Do wpisania", "Komplet", "Do uzupełnienia", "Beneficjent nie posiada PESEL"];
 const DANE_KONTAKTOWE_STATUS = ["Do wpisania", "Komplet", "Do uzupełnienia", "Brak adresu zamieszkania", "Brak telefonu"];
@@ -314,6 +302,7 @@ export default function PzkTutloCasePage() {
   const [mod1ClientType, setMod1ClientType] = useState<PzkClientType>("STANDARD_KADRY");
   const [mod1Worker, setMod1Worker] = useState("");
   const [savingMod1, setSavingMod1] = useState(false);
+  const [workers, setWorkers] = useState<{ id: string; fullName: string; dept: string | null }[]>([]);
 
   const [savingMod, setSavingMod] = useState<string | null>(null);
   const [editingDate, setEditingDate] = useState(false);
@@ -366,6 +355,7 @@ export default function PzkTutloCasePage() {
   }, [id, router]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { fetch("/api/pzk/workers").then(r => r.ok ? r.json() : []).then(setWorkers).catch(() => {}); }, []);
 
   useEffect(() => {
     if (c?.cooperationEndsAt) setDateValue(c.cooperationEndsAt.substring(0, 10));
@@ -575,14 +565,24 @@ export default function PzkTutloCasePage() {
           {c.emailFinal28Sent && <span className="text-orange-700">Powiadomienie 28. wysłane</span>}
         </div>
         {/* Color summary */}
-        {(() => { const cc = countColors(c); return (
-          <div className="flex gap-4 text-xs mb-2">
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-green-500 inline-block" /> <strong>{cc.green}</strong> Komplet</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-yellow-400 inline-block" /> <strong>{cc.yellow}</strong> Do uzyskania</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> <strong>{cc.red}</strong> Nie uzyskano</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-300 inline-block" /> <strong>{cc.gray}</strong> ND</span>
+        {(() => { const cc = countFieldColors(c); return (
+          <div className="flex flex-wrap gap-3 text-xs mb-2">
+            <span className="text-gray-500">Pól: <strong>{cc.total}</strong></span>
+            {cc.undefined > 0 && <span className="text-gray-400">Nieokreślone: <strong>{cc.undefined}</strong></span>}
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-green-500 inline-block" /> <strong>{cc.green}</strong></span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-yellow-400 inline-block" /> <strong>{cc.yellow}</strong></span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> <strong>{cc.red}</strong></span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-300 inline-block" /> <strong>{cc.gray}</strong></span>
           </div>
         ); })()}
+        {/* mBank info */}
+        {(() => { const m2 = (c.mod2Admin || {}) as Mod2Admin; return (m2.biezaceSwrodkiMBank || m2.biezaceSwrodkiKomentarz) ? (
+          <div className="text-xs text-gray-600 mb-2 flex gap-3">
+            {m2.biezaceSwrodkiMBank && <span>mBank: <strong>{m2.biezaceSwrodkiMBank} zł</strong></span>}
+            {m2.biezaceSwrodkiStatus && <span className="flex items-center gap-1"><ColorDot color={getFieldColor(m2.biezaceSwrodkiStatus)} /> {m2.biezaceSwrodkiStatus}</span>}
+            {m2.biezaceSwrodkiKomentarz && <span className="text-gray-400 italic">{m2.biezaceSwrodkiKomentarz}</span>}
+          </div>
+        ) : null; })()}
         {/* Color legend */}
         <div className="flex flex-wrap gap-3 text-xs text-gray-500">
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> Komplet / Zielony</span>
@@ -626,7 +626,16 @@ export default function PzkTutloCasePage() {
               </select>
             )}
           </div>
-          <TextField label="Pracownik odpowiedzialny" value={mod1Worker} onChange={setMod1Worker} disabled={!canAdmin} />
+          <div className="flex items-center gap-2 py-1.5 border-b border-gray-100">
+            <span className="w-2.5 flex-shrink-0" />
+            <span className="text-xs text-gray-500 w-48 flex-shrink-0">Pracownik odpowiedzialny</span>
+            {!canAdmin ? <span className="text-sm text-gray-700">{mod1Worker || "—"}</span> : (
+              <select className="text-sm border-0 bg-transparent focus:ring-0 p-0 cursor-pointer text-gray-800" value={mod1Worker} onChange={(e) => setMod1Worker(e.target.value)}>
+                <option value="">— wybierz —</option>
+                {workers.map((w) => <option key={w.id} value={w.fullName}>{w.fullName}{w.dept ? ` (${w.dept})` : ""}</option>)}
+              </select>
+            )}
+          </div>
         </ModuleCard>
 
         {/* ── Module 2: Administration ── */}
@@ -644,20 +653,26 @@ export default function PzkTutloCasePage() {
           <TextField label="Data startu / CRM" value={mod2.dataStartuCRM} onChange={(v) => setMod2(d => ({ ...d, dataStartuCRM: v }))} disabled={!canAdmin} type="date" />
 
           <p className="text-xs font-semibold text-gray-400 uppercase mt-3 mb-2">2B — Dokumenty wstępne</p>
-          <DropField label="PESEL" value={mod2.pesel} options={PESEL_STATUS} onChange={(v) => setMod2(d => ({ ...d, pesel: v as never }))} disabled={!canAdmin} />
-          <DropField label="Dane kontaktowe" value={mod2.daneKontaktowe} options={DANE_KONTAKTOWE_STATUS} onChange={(v) => setMod2(d => ({ ...d, daneKontaktowe: v as never }))} disabled={!canAdmin} />
-          <DropField label="Branża" value={mod2.branza} options={BRANZE} onChange={(v) => setMod2(d => ({ ...d, branza: v as never }))} disabled={!canAdmin} />
+          <DropFieldWithCustom label="PESEL" value={mod2.pesel} customText={mod2.peselCustomText} customColor={mod2.peselCustomColor} options={PESEL_STATUS} onChange={(v) => setMod2(d => ({ ...d, pesel: v }))} onCustomTextChange={(v) => setMod2(d => ({ ...d, peselCustomText: v }))} onCustomColorChange={(v) => setMod2(d => ({ ...d, peselCustomColor: v }))} disabled={!canAdmin} />
+          <DropFieldWithCustom label="Dane kontaktowe" value={mod2.daneKontaktowe} customText={mod2.daneKontaktoweCustomText} customColor={mod2.daneKontaktoweCustomColor} options={DANE_KONTAKTOWE_STATUS} onChange={(v) => setMod2(d => ({ ...d, daneKontaktowe: v }))} onCustomTextChange={(v) => setMod2(d => ({ ...d, daneKontaktoweCustomText: v }))} onCustomColorChange={(v) => setMod2(d => ({ ...d, daneKontaktoweCustomColor: v }))} disabled={!canAdmin} />
+          <DropFieldWithCustom label="Branża" value={mod2.branza} customText={mod2.branzaCustomText} customColor={mod2.branzaCustomColor} options={BRANZE} onChange={(v) => setMod2(d => ({ ...d, branza: v }))} onCustomTextChange={(v) => setMod2(d => ({ ...d, branzaCustomText: v }))} onCustomColorChange={(v) => setMod2(d => ({ ...d, branzaCustomColor: v }))} disabled={!canAdmin} />
           <DropField label="Umowa" value={mod2.umowa} options={DOC_STATUS_NO_ND} onChange={(v) => setMod2(d => ({ ...d, umowa: v as never }))} disabled={!canAdmin} />
+          <CommentField value={mod2.umowaKomentarz} onChange={(v) => setMod2(d => ({ ...d, umowaKomentarz: v }))} disabled={!canAdmin} />
           <DropField label="RODO" value={mod2.rodo} options={DOC_STATUS_NO_ND} onChange={(v) => setMod2(d => ({ ...d, rodo: v as never }))} disabled={!canAdmin} />
+          <CommentField value={mod2.rodoKomentarz} onChange={(v) => setMod2(d => ({ ...d, rodoKomentarz: v }))} disabled={!canAdmin} />
           <DropField label="Oświadczenie twórcy" value={mod2.oswiadczenieTworcy} options={DOC_STATUS} onChange={(v) => setMod2(d => ({ ...d, oswiadczenieTworcy: v as never }))} disabled={!canAdmin} />
-          <DropField label="KRK" value={mod2.krk} options={KRK_STATUS} onChange={(v) => setMod2(d => ({ ...d, krk: v as never }))} disabled={!canAdmin} />
+          <CommentField value={mod2.oswiadczenieTworcyKomentarz} onChange={(v) => setMod2(d => ({ ...d, oswiadczenieTworcyKomentarz: v }))} disabled={!canAdmin} />
+          <DropFieldWithCustom label="KRK" value={mod2.krk} customText={mod2.krkCustomText} customColor={mod2.krkCustomColor} options={KRK_STATUS} onChange={(v) => setMod2(d => ({ ...d, krk: v }))} onCustomTextChange={(v) => setMod2(d => ({ ...d, krkCustomText: v }))} onCustomColorChange={(v) => setMod2(d => ({ ...d, krkCustomColor: v }))} disabled={!canAdmin} />
+          <CommentField value={mod2.krkKomentarz} onChange={(v) => setMod2(d => ({ ...d, krkKomentarz: v }))} disabled={!canAdmin} />
           <DropField label="Oświadczenie do wys. elektr." value={mod2.oswiadczenieElektroniczne} options={DOC_STATUS_ELEKTR} onChange={(v) => setMod2(d => ({ ...d, oswiadczenieElektroniczne: v as never }))} disabled={!canAdmin} />
+          <CommentField value={mod2.oswiadczenieElektroniczneKomentarz} onChange={(v) => setMod2(d => ({ ...d, oswiadczenieElektroniczneKomentarz: v }))} disabled={!canAdmin} />
 
           <p className="text-xs font-semibold text-gray-400 uppercase mt-3 mb-2">2C — Dostępy</p>
           <DropField label="Benefit System" value={mod2.benefitSystem} options={ACCESS_STATUS} onChange={(v) => setMod2(d => ({ ...d, benefitSystem: v as never }))} disabled={!canAdmin} />
           <DropField label="Konto mBank" value={mod2.kontoMBank} options={ACCESS_STATUS} onChange={(v) => setMod2(d => ({ ...d, kontoMBank: v as never }))} disabled={!canAdmin} />
           <DropField label="Konto CRM" value={mod2.kontoCRM} options={ACCESS_STATUS} onChange={(v) => setMod2(d => ({ ...d, kontoCRM: v as never }))} disabled={!canAdmin} />
           <AmountField label="Bieżące środki mBank" value={mod2.biezaceSwrodkiMBank} onChange={(v) => setMod2(d => ({ ...d, biezaceSwrodkiMBank: v }))} disabled={!canAdmin} />
+          <DropField label="Status środków" value={mod2.biezaceSwrodkiStatus} options={MBANK_STATUS} onChange={(v) => setMod2(d => ({ ...d, biezaceSwrodkiStatus: v }))} disabled={!canAdmin} />
           <TextField label="Komentarz (mBank)" value={mod2.biezaceSwrodkiKomentarz} onChange={(v) => setMod2(d => ({ ...d, biezaceSwrodkiKomentarz: v }))} disabled={!canAdmin} />
         </ModuleCard>
 
@@ -678,7 +693,7 @@ export default function PzkTutloCasePage() {
           <CommentField value={mod3.brakiKadryPlatnosciKomentarz} onChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosciKomentarz: v }))} disabled={!canKadry} />
           <TextField label="Opłaty za" value={mod3.brakiKadryPlatnosciOplatyZa} onChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosciOplatyZa: v }))} disabled={!canKadry} />
           <CommentField value={mod3.brakiKadryPlatnosciOplatyZaKomentarz} onChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosciOplatyZaKomentarz: v }))} disabled={!canKadry} />
-          <DropField label="Status opłat" value={mod3.brakiKadryPlatnosciStatus} options={PAYMENT_STATUS} onChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnościStatus: v }))} disabled={!canKadry} />
+          <PaymentStatusField label="Status opłat" value={mod3.brakiKadryPlatnosciStatus} nieOplacono={mod3.brakiKadryPlatnosciNieOplacono} nieUzyskano={mod3.brakiKadryPlatnosciNieUzyskano} options={PAYMENT_STATUS} onChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosciStatus: v }))} onNieOplaconoChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosciNieOplacono: v }))} onNieUzyskanoChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosciNieUzyskano: v }))} disabled={!canKadry} />
           <CommentField value={mod3.brakiKadryPlatnosciStatusKomentarz} onChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosciStatusKomentarz: v }))} disabled={!canKadry} />
           <TextField label="Legitymacja" value={mod3.legitymacja} onChange={(v) => setMod3(d => ({ ...d, legitymacja: v }))} disabled={!canKadry} />
           <CommentField value={mod3.legitymacjaKomentarz} onChange={(v) => setMod3(d => ({ ...d, legitymacjaKomentarz: v }))} disabled={!canKadry} />
@@ -694,7 +709,7 @@ export default function PzkTutloCasePage() {
         >
           <AmountField label="Braki UZ – płatności" value={mod3.brakiUZPlatnosci} paymentStatus={mod3.brakiUZPlatnosciStatus} onChange={(v) => setMod3(d => ({ ...d, brakiUZPlatnosci: v }))} disabled={!canKadry} />
           <TextField label="Opłaty za" value={mod3.brakiUZPlatnosciOplatyZa} onChange={(v) => setMod3(d => ({ ...d, brakiUZPlatnosciOplatyZa: v }))} disabled={!canKadry} />
-          <DropField label="Status opłat" value={mod3.brakiUZPlatnosciStatus} options={PAYMENT_STATUS} onChange={(v) => setMod3(d => ({ ...d, brakiUZPlatnosciStatus: v }))} disabled={!canKadry} />
+          <PaymentStatusField label="Status opłat" value={mod3.brakiUZPlatnosciStatus} nieOplacono={mod3.brakiUZPlatnosciNieOplacono} nieUzyskano={mod3.brakiUZPlatnosciNieUzyskano} options={PAYMENT_STATUS} onChange={(v) => setMod3(d => ({ ...d, brakiUZPlatnosciStatus: v }))} onNieOplaconoChange={(v) => setMod3(d => ({ ...d, brakiUZPlatnosciNieOplacono: v }))} onNieUzyskanoChange={(v) => setMod3(d => ({ ...d, brakiUZPlatnosciNieUzyskano: v }))} disabled={!canKadry} />
           <DropField label="ZWUA" value={mod3.zwua} options={ZWUA_STATUS} onChange={(v) => setMod3(d => ({ ...d, zwua: v as never }))} disabled={!canKadry} />
           <TextField label="Data ZWUA" value={mod3.dataZwua} onChange={(v) => setMod3(d => ({ ...d, dataZwua: v }))} disabled={!canKadry} type="date" />
           <TextField label="Komentarz kadrowy" value={mod3.komentarzKadrowy} onChange={(v) => setMod3(d => ({ ...d, komentarzKadrowy: v }))} disabled={!canKadry} />
@@ -716,7 +731,7 @@ export default function PzkTutloCasePage() {
           <p className="text-xs font-semibold text-gray-400 uppercase mt-3 mb-2">4B — Płatności</p>
           <AmountField label="Braki księgowość – płatności" value={mod4.brakiKsiegPlatnosci} paymentStatus={mod4.brakiKsiegPlatnosciStatus} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegPlatnosci: v }))} disabled={!canKsieg} />
           <TextField label="Opłaty za" value={mod4.brakiKsiegPlatnosciOplatyZa} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegPlatnosciOplatyZa: v }))} disabled={!canKsieg} />
-          <DropField label="Status opłat" value={mod4.brakiKsiegPlatnosciStatus} options={PAYMENT_STATUS} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegPlatnosciStatus: v }))} disabled={!canKsieg} />
+          <PaymentStatusField label="Status opłat" value={mod4.brakiKsiegPlatnosciStatus} nieOplacono={mod4.brakiKsiegPlatnosciNieOplacono} nieUzyskano={mod4.brakiKsiegPlatnosciNieUzyskano} options={PAYMENT_STATUS} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegPlatnosciStatus: v }))} onNieOplaconoChange={(v) => setMod4(d => ({ ...d, brakiKsiegPlatnosciNieOplacono: v }))} onNieUzyskanoChange={(v) => setMod4(d => ({ ...d, brakiKsiegPlatnosciNieUzyskano: v }))} disabled={!canKsieg} />
           <TextField label="Komentarz księgowy" value={mod4.komentarzKsieg} onChange={(v) => setMod4(d => ({ ...d, komentarzKsieg: v }))} disabled={!canKsieg} />
         </ModuleCard>
 
@@ -736,7 +751,7 @@ export default function PzkTutloCasePage() {
           <p className="text-xs font-semibold text-gray-400 uppercase mt-3 mb-2">5B — Płatności</p>
           <AmountField label="Braki legalizacja – płatności" value={mod5.brakiLegalPlatnosci} paymentStatus={mod5.brakiLegalPlatnosciStatus} onChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosci: v }))} disabled={!canLegal} />
           <TextField label="Opłaty za" value={mod5.brakiLegalPlatnosciOplatyZa} onChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciOplatyZa: v }))} disabled={!canLegal} />
-          <DropField label="Status opłat" value={mod5.brakiLegalPlatnosciStatus} options={PAYMENT_STATUS} onChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciStatus: v }))} disabled={!canLegal} />
+          <PaymentStatusField label="Status opłat" value={mod5.brakiLegalPlatnosciStatus} nieOplacono={mod5.brakiLegalPlatnosciNieOplacono} nieUzyskano={mod5.brakiLegalPlatnosciNieUzyskano} options={PAYMENT_STATUS} onChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciStatus: v }))} onNieOplaconoChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciNieOplacono: v }))} onNieUzyskanoChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciNieUzyskano: v }))} disabled={!canLegal} />
           <TextField label="Komentarz legalizacyjny" value={mod5.komentarzLegal} onChange={(v) => setMod5(d => ({ ...d, komentarzLegal: v }))} disabled={!canLegal} />
         </ModuleCard>
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
-import { PZK_CLIENT_TYPE_LABELS, PzkClientType } from "@/lib/pzk-types";
+import { PZK_CLIENT_TYPE_LABELS, PzkClientType, PzkCase, countFieldColors } from "@/lib/pzk-types";
 
 interface PzkListItem {
   id: string;
@@ -155,6 +155,18 @@ export default function PzkPage() {
                       {c.benefEmail && <span>{c.benefEmail}</span>}
                       <span>Koniec: <strong>{formatDate(c.cooperationEndsAt)}</strong></span>
                     </div>
+                    {/* Mini color summary */}
+                    {!c.withdrawnFromNotice && !c.caseClosed && (() => {
+                      const cc = countFieldColors(c as unknown as PzkCase);
+                      return (
+                        <div className="flex gap-2 text-xs mt-0.5">
+                          <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />{cc.green}</span>
+                          <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />{cc.yellow}</span>
+                          <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />{cc.red}</span>
+                          {cc.undefined > 0 && <span className="text-gray-400">?{cc.undefined}</span>}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="flex-shrink-0 text-right">
                     {!c.withdrawnFromNotice && (
