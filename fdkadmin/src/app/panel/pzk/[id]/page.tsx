@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   PzkCase, PzkClientType, Mod2Admin, Mod3Kadry, Mod4Ksieg, Mod5Legal,
-  Mod6Platnosci, Mod7Umowy, Mod8Inne,
+  Mod6Platnosci, Mod7Umowy, Mod8Inne, ContactEntry,
   PZK_CLIENT_TYPE_LABELS, getFieldColor, getAmountColor, canEditModule, FieldColor,
   collectBraki, countFieldColors,
 } from "@/lib/pzk-types";
@@ -212,11 +212,15 @@ function PaymentStatusField({
 
 function ModuleCard({
   title, closed, canEdit, onToggleClose, onSave, saving, children,
+  hasYellow, isAdmin, subModulesOpen,
 }: {
   title: string; closed: boolean; canEdit: boolean;
   onToggleClose: () => void; onSave: () => void; saving: boolean;
   children: React.ReactNode;
+  hasYellow?: boolean; isAdmin?: boolean; subModulesOpen?: string[];
 }) {
+  const blockClose = !closed && !isAdmin && hasYellow;
+  const blockBySubModules = !closed && subModulesOpen && subModulesOpen.length > 0;
   return (
     <div className={`bg-white border rounded-xl overflow-hidden ${closed ? "opacity-75" : ""}`}>
       <div className="flex items-center justify-between px-4 py-2.5 border-b bg-gray-50">
@@ -226,7 +230,7 @@ function ModuleCard({
           {closed && <span className="text-xs text-green-700 bg-green-100 px-1.5 py-0.5 rounded">Zamknięty</span>}
         </div>
         {canEdit && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <button
               onClick={onSave}
               disabled={saving}
@@ -235,8 +239,10 @@ function ModuleCard({
               {saving ? "Zapisuję..." : "Zapisz"}
             </button>
             <button
-              onClick={onToggleClose}
-              className={`text-xs px-3 py-1 rounded border ${closed ? "border-gray-300 text-gray-600 hover:bg-gray-100" : "border-green-500 text-green-700 hover:bg-green-50"}`}
+              onClick={closed ? onToggleClose : (blockClose || blockBySubModules ? undefined : onToggleClose)}
+              disabled={!closed && (blockClose || !!blockBySubModules)}
+              title={blockClose ? "Nie można zamknąć — są pola do uzupełnienia" : blockBySubModules ? `Otwarte podmoduły: ${subModulesOpen!.join(", ")}` : undefined}
+              className={`text-xs px-3 py-1 rounded border ${closed ? "border-gray-300 text-gray-600 hover:bg-gray-100" : (blockClose || blockBySubModules) ? "border-gray-200 text-gray-300 cursor-not-allowed" : "border-green-500 text-green-700 hover:bg-green-50"}`}
             >
               {closed ? "Otwórz" : "Zamknij moduł"}
             </button>
@@ -251,10 +257,12 @@ function ModuleCard({
 // ─── Sub-module header with close toggle ──────────────────────────────────────
 
 function SubModuleHeader({
-  title, closed, canEdit, onToggle,
+  title, closed, canEdit, onToggle, hasYellow, isAdmin,
 }: {
   title: string; closed: boolean; canEdit: boolean; onToggle: () => void;
+  hasYellow?: boolean; isAdmin?: boolean;
 }) {
+  const blockClose = !closed && !isAdmin && hasYellow;
   return (
     <div className="flex items-center justify-between mt-3 mb-2">
       <div className="flex items-center gap-2">
@@ -263,7 +271,12 @@ function SubModuleHeader({
         {closed && <span className="text-xs text-green-700 bg-green-100 px-1 py-0 rounded">Zamknięty</span>}
       </div>
       {canEdit && (
-        <button onClick={onToggle} className={`text-xs px-2 py-0.5 rounded border ${closed ? "border-gray-300 text-gray-500 hover:bg-gray-100" : "border-green-400 text-green-600 hover:bg-green-50"}`}>
+        <button
+          onClick={blockClose ? undefined : onToggle}
+          disabled={!!blockClose}
+          title={blockClose ? "Nie można zamknąć — są pola do uzupełnienia" : undefined}
+          className={`text-xs px-2 py-0.5 rounded border ${closed ? "border-gray-300 text-gray-500 hover:bg-gray-100" : blockClose ? "border-gray-200 text-gray-300 cursor-not-allowed" : "border-green-400 text-green-600 hover:bg-green-50"}`}
+        >
           {closed ? "Otwórz" : "Zamknij"}
         </button>
       )}
@@ -334,6 +347,15 @@ export default function PzkCasePage() {
   const [mailText, setMailText] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleteSaving, setDeleteSaving] = useState(false);
+  // Contact log
+  const [contactDate, setContactDate] = useState("");
+  const [contactSubject, setContactSubject] = useState("");
+  const [contactStatus, setContactStatus] = useState<"W trakcie" | "Zakończono">("W trakcie");
+  const [contactComment, setContactComment] = useState("");
+  const [showContactForm, setShowContactForm] = useState(false);
+  // Internal comment
+  const [internalComment, setInternalComment] = useState("");
+  const [savingComment, setSavingComment] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/pzk/${id}`);
@@ -374,6 +396,7 @@ export default function PzkCasePage() {
       m8raw.domenaEntries = [{ rodzaj: m8raw.domenaRodzaj, status: m8raw.domenaStatus }];
     }
     setMod8(m8raw);
+    setInternalComment(data.internalComment || "");
     setLoading(false);
   }, [id, router]);
 
@@ -492,6 +515,45 @@ export default function PzkCasePage() {
       `Temat: Uzupełnienie braków przed końcem współpracy\n\nDzień dobry,\n\nW związku ze zbliżającym się końcem naszej współpracy (${endDate}), proszę o uzupełnienie braków: ${brakiStr}.\n\nProszę o dosłanie braków w ciągu [UZUPEŁNIJ TERMIN].\n\nW razie wątpliwości zapraszam do kontaktu, dziękuję.`
     );
     setMailModal(true);
+  }
+
+  async function addContact() {
+    if (!contactSubject.trim()) return;
+    const entry = {
+      id: crypto.randomUUID(),
+      date: contactDate || new Date().toISOString().substring(0, 10),
+      subject: contactSubject,
+      status: contactStatus,
+      comment: contactComment,
+      worker: user?.fullName || "—",
+      createdAt: new Date().toISOString(),
+    };
+    const log = [...(c!.contactLog || []), entry];
+    const res = await fetch(`/api/pzk/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactLog: log }),
+    });
+    if (res.ok) { setC(await res.json()); setContactSubject(""); setContactComment(""); setShowContactForm(false); }
+  }
+
+  async function deleteContact(contactId: string) {
+    const log = (c!.contactLog || []).filter(e => e.id !== contactId);
+    const res = await fetch(`/api/pzk/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactLog: log }),
+    });
+    if (res.ok) setC(await res.json());
+  }
+
+  async function saveInternalComment() {
+    setSavingComment(true);
+    try {
+      const res = await fetch(`/api/pzk/${id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ internalComment: internalComment || null }),
+      });
+      if (res.ok) setC(await res.json());
+    } finally { setSavingComment(false); }
   }
 
   if (loading || !c) {
@@ -625,6 +687,69 @@ export default function PzkCasePage() {
         </div>
       )}
 
+      {/* Contact log */}
+      <div className="bg-white border rounded-xl p-4 mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold text-gray-700">Kontakt z Beneficjentem</h3>
+          <button type="button" onClick={() => setShowContactForm(!showContactForm)} className="text-xs text-blue-600 hover:underline">
+            {showContactForm ? "Anuluj" : "+ Dodaj kontakt"}
+          </button>
+        </div>
+        {showContactForm && (
+          <div className="bg-gray-50 rounded-lg p-3 mb-3 space-y-2">
+            <div className="flex gap-2">
+              <input type="date" value={contactDate} onChange={(e) => setContactDate(e.target.value)} className="border rounded px-2 py-1 text-sm flex-shrink-0" />
+              <input type="text" value={contactSubject} onChange={(e) => setContactSubject(e.target.value)} placeholder="W sprawie..." className="border rounded px-2 py-1 text-sm flex-1" />
+              <select value={contactStatus} onChange={(e) => setContactStatus(e.target.value as "W trakcie" | "Zakończono")} className="border rounded px-2 py-1 text-sm">
+                <option value="W trakcie">W trakcie</option>
+                <option value="Zakończono">Zakończono</option>
+              </select>
+            </div>
+            <input type="text" value={contactComment} onChange={(e) => setContactComment(e.target.value)} placeholder="Komentarz..." className="w-full border rounded px-2 py-1 text-sm" />
+            <button type="button" onClick={addContact} className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Dodaj</button>
+          </div>
+        )}
+        {(c.contactLog || []).length === 0 ? (
+          <p className="text-xs text-gray-400">Brak wpisów</p>
+        ) : (
+          <div className="divide-y text-sm">
+            {[...(c.contactLog || [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((entry) => (
+              <div key={entry.id} className="py-2 flex items-start gap-3">
+                <span className="text-xs text-gray-400 w-20 flex-shrink-0">{entry.date}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-800">{entry.subject}</span>
+                    <span className={`text-xs px-1.5 py-0 rounded ${entry.status === "Zakończono" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>{entry.status}</span>
+                  </div>
+                  {entry.comment && <p className="text-xs text-gray-500 mt-0.5">{entry.comment}</p>}
+                  <p className="text-xs text-gray-400 mt-0.5">— {entry.worker}</p>
+                </div>
+                {(entry.worker === user?.fullName || isAdminOrSupervisor) && (
+                  <button type="button" onClick={() => deleteContact(entry.id)} className="text-xs text-red-400 hover:text-red-600 flex-shrink-0">Usuń</button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Internal comment */}
+      <div className="bg-white border rounded-xl p-4 mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold text-gray-700">Komentarz wewnętrzny</h3>
+          <button type="button" onClick={saveInternalComment} disabled={savingComment} className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-50">
+            {savingComment ? "Zapisuję..." : "Zapisz"}
+          </button>
+        </div>
+        <textarea
+          value={internalComment}
+          onChange={(e) => setInternalComment(e.target.value)}
+          rows={3}
+          className="w-full border rounded-lg p-2 text-sm resize-y"
+          placeholder="Notatki wewnętrzne zespołu..."
+        />
+      </div>
+
       {/* Modules */}
       <div className="space-y-3">
 
@@ -666,9 +791,11 @@ export default function PzkCasePage() {
           title="2. Dział Administracji"
           closed={c.mod2Closed}
           canEdit={canAdmin}
-          onToggleClose={() => toggleModuleClosed("mod2Closed", c.mod2Closed)}
+          onToggleClose={() => { toggleModuleClosed("mod2Closed", c.mod2Closed); if (!c.mod2Closed) { if (!c.mod2AClosed) toggleModuleClosed("mod2AClosed", false); if (!c.mod2BClosed) toggleModuleClosed("mod2BClosed", false); if (!c.mod2CClosed) toggleModuleClosed("mod2CClosed", false); } }}
           onSave={() => saveModule("mod2Admin", mod2)}
           saving={savingMod === "mod2Admin"}
+          isAdmin={isAdminOrSupervisor}
+          subModulesOpen={[...(!c.mod2AClosed ? ["2A"] : []), ...(!c.mod2BClosed ? ["2B"] : []), ...(!c.mod2CClosed ? ["2C"] : [])]}
         >
           <SubModuleHeader title="2A — Informacje o współpracy" closed={c.mod2AClosed} canEdit={canAdmin} onToggle={() => toggleModuleClosed("mod2AClosed", c.mod2AClosed)} />
           <TextField label="Skąd informacja o wypowiedzeniu" value={mod2.infoSource} onChange={(v) => setMod2(d => ({ ...d, infoSource: v }))} disabled={!canAdmin} />
@@ -743,9 +870,11 @@ export default function PzkCasePage() {
           title="4. Dział Księgowy"
           closed={c.mod4Closed}
           canEdit={canKsieg}
-          onToggleClose={() => toggleModuleClosed("mod4Closed", c.mod4Closed)}
+          onToggleClose={() => { toggleModuleClosed("mod4Closed", c.mod4Closed); if (!c.mod4Closed) { if (!c.mod4AClosed) toggleModuleClosed("mod4AClosed", false); if (!c.mod4BClosed) toggleModuleClosed("mod4BClosed", false); } }}
           onSave={() => saveModule("mod4Ksieg", mod4)}
           saving={savingMod === "mod4Ksieg"}
+          isAdmin={isAdminOrSupervisor}
+          subModulesOpen={[...(!c.mod4AClosed ? ["4A"] : []), ...(!c.mod4BClosed ? ["4B"] : [])]}
         >
           <SubModuleHeader title="4A — Dokumenty" closed={c.mod4AClosed} canEdit={canKsieg} onToggle={() => toggleModuleClosed("mod4AClosed", c.mod4AClosed)} />
           <TextField label="Braki księgowość – dokumenty" value={mod4.brakiKsiegDok} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegDok: v }))} disabled={!canKsieg} />
@@ -763,9 +892,11 @@ export default function PzkCasePage() {
           title="5. Dział Legalizacji"
           closed={c.mod5Closed}
           canEdit={canLegal}
-          onToggleClose={() => toggleModuleClosed("mod5Closed", c.mod5Closed)}
+          onToggleClose={() => { toggleModuleClosed("mod5Closed", c.mod5Closed); if (!c.mod5Closed) { if (!c.mod5AClosed) toggleModuleClosed("mod5AClosed", false); if (!c.mod5BClosed) toggleModuleClosed("mod5BClosed", false); } }}
           onSave={() => saveModule("mod5Legal", mod5)}
           saving={savingMod === "mod5Legal"}
+          isAdmin={isAdminOrSupervisor}
+          subModulesOpen={[...(!c.mod5AClosed ? ["5A"] : []), ...(!c.mod5BClosed ? ["5B"] : [])]}
         >
           <SubModuleHeader title="5A — Dokumenty" closed={c.mod5AClosed} canEdit={canLegal} onToggle={() => toggleModuleClosed("mod5AClosed", c.mod5AClosed)} />
           <TextField label="Braki legalizacja – dokumenty" value={mod5.brakiLegalDok} onChange={(v) => setMod5(d => ({ ...d, brakiLegalDok: v }))} disabled={!canLegal} />
@@ -783,9 +914,11 @@ export default function PzkCasePage() {
           title="6. Płatności"
           closed={c.mod6Closed}
           canEdit={canOplaty}
-          onToggleClose={() => toggleModuleClosed("mod6Closed", c.mod6Closed)}
+          onToggleClose={() => { toggleModuleClosed("mod6Closed", c.mod6Closed); if (!c.mod6Closed) { if (!c.mod6AClosed) toggleModuleClosed("mod6AClosed", false); if (!c.mod6BClosed) toggleModuleClosed("mod6BClosed", false); if (!c.mod6CClosed) toggleModuleClosed("mod6CClosed", false); } }}
           onSave={() => saveModule("mod6Platnosci", mod6)}
           saving={savingMod === "mod6Platnosci"}
+          isAdmin={isAdminOrSupervisor}
+          subModulesOpen={[...(!c.mod6AClosed ? ["6A"] : []), ...(!c.mod6BClosed ? ["6B"] : []), ...(!c.mod6CClosed ? ["6C"] : [])]}
         >
           <SubModuleHeader title="6A — Opłaty za współpracę" closed={c.mod6AClosed} canEdit={canOplaty} onToggle={() => toggleModuleClosed("mod6AClosed", c.mod6AClosed)} />
           <AmountField label="Kwota" value={mod6.oplatyWspolpraca} paymentStatus={mod6.oplatyWspolpracaStatus} onChange={(v) => setMod6(d => ({ ...d, oplatyWspolpraca: v }))} disabled={!canOplaty} />
@@ -859,7 +992,9 @@ export default function PzkCasePage() {
           title="8. Inne"
           closed={c.mod8Closed}
           canEdit={canMod8}
-          onToggleClose={() => toggleModuleClosed("mod8Closed", c.mod8Closed)}
+          onToggleClose={() => { toggleModuleClosed("mod8Closed", c.mod8Closed); if (!c.mod8Closed) { if (!c.mod8AClosed) toggleModuleClosed("mod8AClosed", false); if (!c.mod8BClosed) toggleModuleClosed("mod8BClosed", false); } }}
+          isAdmin={isAdminOrSupervisor}
+          subModulesOpen={[...(!c.mod8AClosed ? ["8A"] : []), ...(!c.mod8BClosed ? ["8B"] : [])]}
           onSave={() => saveModule("mod8Inne", mod8)}
           saving={savingMod === "mod8Inne"}
         >

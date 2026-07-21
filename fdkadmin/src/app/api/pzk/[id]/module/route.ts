@@ -59,10 +59,11 @@ function computeAutoClose(moduleKey: string, data: Record<string, unknown>): Rec
   if (moduleKey === "mod3Kadry") {
     // 3A: sprawy kadrowe — check payment status
     if (isGG(get(data, "brakiKadryPlatnosciStatus"))) result.mod3AClosed = true;
-    // 3B: ubezpieczenia — if UZ = ND, skip; otherwise check status + ZWUA
-    if (get(data, "brakiUZPlatnosci") === "Nie dotyczy") {
+    // 3B: ubezpieczenia — require explicit values, not empty
+    const uzPlatnosci = get(data, "brakiUZPlatnosci");
+    if (uzPlatnosci === "Nie dotyczy") {
       result.mod3BClosed = true;
-    } else if (isGG(get(data, "brakiUZPlatnosciStatus")) && isGG(get(data, "zwua"))) {
+    } else if (uzPlatnosci && isGG(get(data, "brakiUZPlatnosciStatus")) && isGG(get(data, "zwua"))) {
       result.mod3BClosed = true;
     }
   }
@@ -83,51 +84,58 @@ function computeAutoClose(moduleKey: string, data: Record<string, unknown>): Rec
   }
 
   if (moduleKey === "mod6Platnosci") {
-    // 6A
+    // 6A — require explicit status
     if (isGG(get(data, "oplatyWspolpracaStatus"))) result.mod6AClosed = true;
-    // 6B Multisport
-    const multiND = get(data, "oplatyMultisportStatus") === "Nie dotyczy" || !get(data, "oplatyMultisport");
-    const multiOk = multiND || isGG(get(data, "oplatyMultisportStatus"));
-    if (multiOk) result.mod6BClosed = true;
+    // 6B Multisport — only close if status is explicitly set (not empty)
+    const multiStatus = get(data, "oplatyMultisportStatus");
+    if (multiStatus && isGG(multiStatus)) result.mod6BClosed = true;
     // 6C Medicover
-    const mediND = get(data, "oplatyMedicoverStatus") === "Nie dotyczy" || !get(data, "oplatyMedicover");
-    const mediOk = mediND || isGG(get(data, "oplatyMedicoverStatus"));
-    if (mediOk) result.mod6CClosed = true;
+    const mediStatus = get(data, "oplatyMedicoverStatus");
+    if (mediStatus && isGG(mediStatus)) result.mod6CClosed = true;
+    // Whole module — all sub-modules must be explicitly closed
+    const m6aOk = isGG(get(data, "oplatyWspolpracaStatus"));
+    const m6bOk = multiStatus ? isGG(multiStatus) : false;
+    const m6cOk = mediStatus ? isGG(mediStatus) : false;
     // Legacy fallback
-    const legacyND = get(data, "oplatyBenefitStatus") === "Nie dotyczy" || !get(data, "oplatyBenefit");
-    const legacyOk = legacyND || isGG(get(data, "oplatyBenefitStatus"));
-    const benefitOk = (get(data, "oplatyMultisport") || get(data, "oplatyMedicover")) ? (multiOk && mediOk) : legacyOk;
-    if (isGG(get(data, "oplatyWspolpracaStatus")) && benefitOk) result.mod6Closed = true;
+    const legacyStatus = get(data, "oplatyBenefitStatus");
+    const legacyOk = legacyStatus ? isGG(legacyStatus) : false;
+    const benefitOk = (multiStatus || mediStatus) ? (m6bOk && m6cOk) : legacyOk;
+    if (m6aOk && benefitOk) result.mod6Closed = true;
   }
 
   if (moduleKey === "mod7Umowy") {
-    // Multi-entry B2B
+    // Multi-entry B2B — require at least one entry with explicit status
     const b2bEntries = data.b2bEntries as Array<Record<string, unknown>> | undefined;
     if (b2bEntries?.length) {
       if (b2bEntries.every(e => (e.kontrahent as string) === "Nie dotyczy" || isGG(e.wypowiedzenie as string))) result.mod7AClosed = true;
-    } else if (get(data, "b2bKontrahent") === "Nie dotyczy" || isGG(get(data, "b2bWypowiedzenie"))) {
-      result.mod7AClosed = true;
+    } else {
+      // Legacy — only close if field is explicitly set
+      const b2bWyp = get(data, "b2bWypowiedzenie");
+      const b2bKont = get(data, "b2bKontrahent");
+      if (b2bKont === "Nie dotyczy" || (b2bWyp && isGG(b2bWyp))) result.mod7AClosed = true;
     }
     // Multi-entry Najem
     const najmEntries = data.najmEntries as Array<Record<string, unknown>> | undefined;
     if (najmEntries?.length) {
       if (najmEntries.every(e => (e.umowa as string) === "Nie dotyczy" || isGG(e.wypowiedzenie as string))) result.mod7BClosed = true;
-    } else if (get(data, "najmUmowa") === "Nie dotyczy" || isGG(get(data, "najmWypowiedzenie"))) {
-      result.mod7BClosed = true;
+    } else {
+      const najmWyp = get(data, "najmWypowiedzenie");
+      const najmUm = get(data, "najmUmowa");
+      if (najmUm === "Nie dotyczy" || (najmWyp && isGG(najmWyp))) result.mod7BClosed = true;
     }
   }
 
   if (moduleKey === "mod8Inne") {
-    // Multi-entry bramki
+    // Multi-entry bramki — require entries with explicit status
     const bramkiEntries = data.bramkiEntries as Array<Record<string, unknown>> | undefined;
     const bramkiOk = bramkiEntries?.length
       ? bramkiEntries.every(e => (e.rodzaj as string) === "Nie dotyczy" || isGG(e.status as string))
-      : (get(data, "bramkiRodzaj") === "Nie dotyczy" || isGG(get(data, "bramkiStatus")));
+      : (get(data, "bramkiRodzaj") ? ((get(data, "bramkiRodzaj") === "Nie dotyczy") || isGG(get(data, "bramkiStatus"))) : false);
     // Multi-entry domeny
     const domenaEntries = data.domenaEntries as Array<Record<string, unknown>> | undefined;
     const domenaOk = domenaEntries?.length
       ? domenaEntries.every(e => (e.rodzaj as string) === "Nie dotyczy" || isGG(e.status as string))
-      : (get(data, "domenaRodzaj") === "Nie dotyczy" || isGG(get(data, "domenaStatus")));
+      : (get(data, "domenaRodzaj") ? ((get(data, "domenaRodzaj") === "Nie dotyczy") || isGG(get(data, "domenaStatus"))) : false);
     if (bramkiOk) result.mod8AClosed = true;
     if (domenaOk) result.mod8BClosed = true;
     if (bramkiOk && domenaOk) result.mod8Closed = true;

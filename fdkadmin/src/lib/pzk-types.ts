@@ -242,6 +242,18 @@ export interface Mod8Inne {
   domenaStatus?: "Do uzupełnienia" | "Podpisana i wysłana" | "Niepotrzebne";
 }
 
+// ─── Contact log entry ──────────────────────────────────────────────────────
+
+export interface ContactEntry {
+  id: string;
+  date: string; // ISO date
+  subject: string;
+  status: "W trakcie" | "Zakończono";
+  comment: string;
+  worker: string; // fullName of creator
+  createdAt: string; // ISO datetime
+}
+
 // ─── Composed PzkCase type (frontend) ────────────────────────────────────────
 
 export interface PzkCase {
@@ -257,6 +269,8 @@ export interface PzkCase {
   cooperationEndsAt: string | null;
   withdrawnFromNotice: boolean;
   caseClosed: boolean;
+  internalComment: string | null;
+  contactLog: ContactEntry[] | null;
   createdById: string;
   createdByName: string;
   mod2Admin: Mod2Admin | null;

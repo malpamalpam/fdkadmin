@@ -32,6 +32,7 @@ export async function PATCH(
   const allowed = [
     "lastName", "firstNames", "benefEmail", "clientType", "responsibleWorker",
     "cooperationEndsAt", "withdrawnFromNotice", "caseClosed",
+    "internalComment", "contactLog",
     "mod1Closed", "mod2Closed", "mod2AClosed", "mod2BClosed", "mod2CClosed",
     "mod3AClosed", "mod3BClosed",
     "mod4Closed", "mod4AClosed", "mod4BClosed",

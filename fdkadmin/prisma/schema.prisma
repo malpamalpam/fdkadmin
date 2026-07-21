@@ -197,6 +197,8 @@ model PzkCase {
   cooperationEndsAt   DateTime?
   withdrawnFromNotice Boolean       @default(false)  // "Rezygnacja z wypowiedzenia"
   caseClosed          Boolean       @default(false)  // "Zamknij sprawę" — blocks editing & notifications
+  internalComment     String?       // free-text internal notes
+  contactLog          Json?         // array of contact entries [{date, subject, status, comment, worker, createdAt}]
 
   // Creator
   createdById         String
