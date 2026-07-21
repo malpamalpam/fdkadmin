@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PZK_CLIENT_TYPE_LABELS, PzkClientType } from "@/lib/pzk-types";
 
@@ -10,6 +10,8 @@ export default function NewPzkTutloPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [workers, setWorkers] = useState<{ id: string; fullName: string; dept: string | null }[]>([]);
+  useEffect(() => { fetch("/api/pzk/workers").then(r => r.ok ? r.json() : []).then(setWorkers).catch(() => {}); }, []);
 
   const [form, setForm] = useState({
     lastName: "",
@@ -102,12 +104,14 @@ export default function NewPzkTutloPage() {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Pracownik odpowiedzialny</label>
-          <input
+          <select
             className="w-full border rounded-lg px-3 py-2 text-sm"
             value={form.responsibleWorker}
             onChange={(e) => set("responsibleWorker", e.target.value)}
-            placeholder="np. Przemysław Wróbel"
-          />
+          >
+            <option value="">— wybierz —</option>
+            {workers.map((w) => <option key={w.id} value={w.fullName}>{w.fullName}{w.dept ? ` (${w.dept})` : ""}</option>)}
+          </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Współpraca do</label>

@@ -39,7 +39,7 @@ function DropField({
   return (
     <div className="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0">
       <ColorDot color={c} />
-      <span className="text-xs text-gray-500 w-48 flex-shrink-0">{label}</span>
+      <span className="text-xs text-gray-500 w-48 flex-shrink-0 border-r border-gray-200 pr-2">{label}</span>
       {disabled ? (
         <span className="text-sm text-gray-700">{value || "—"}</span>
       ) : (
@@ -49,6 +49,7 @@ function DropField({
           onChange={(e) => onChange(e.target.value)}
         >
           <option value="">— wybierz —</option>
+          {value && !options.includes(value) && <option value={value}>{value} (archiwalne)</option>}
           {options.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
       )}
@@ -67,7 +68,7 @@ function TextField({
   return (
     <div className="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0">
       <span className="w-2.5 flex-shrink-0" />
-      <span className="text-xs text-gray-500 w-48 flex-shrink-0">{label}</span>
+      <span className="text-xs text-gray-500 w-48 flex-shrink-0 border-r border-gray-200 pr-2">{label}</span>
       {disabled ? (
         <span className="text-sm text-gray-700">{value || "—"}</span>
       ) : (
@@ -95,7 +96,7 @@ function AmountField({
   return (
     <div className="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0">
       <ColorDot color={c} />
-      <span className="text-xs text-gray-500 w-48 flex-shrink-0">{label}</span>
+      <span className="text-xs text-gray-500 w-48 flex-shrink-0 border-r border-gray-200 pr-2">{label}</span>
       {disabled ? (
         <span className="text-sm text-gray-700">{value || "—"} zł</span>
       ) : (
@@ -134,12 +135,13 @@ function DropFieldWithCustom({
     <div className="py-1.5 border-b border-gray-100 last:border-0">
       <div className="flex items-center gap-2">
         <ColorDot color={displayColor} />
-        <span className="text-xs text-gray-500 w-48 flex-shrink-0">{label}</span>
+        <span className="text-xs text-gray-500 w-48 flex-shrink-0 border-r border-gray-200 pr-2">{label}</span>
         {disabled ? (
           <span className="text-sm text-gray-700">{isCustom && customText ? `${value}: ${customText}` : (value || "—")}</span>
         ) : (
           <select className="text-sm border-0 bg-transparent focus:ring-0 p-0 cursor-pointer text-gray-800" value={value || ""} onChange={(e) => onChange(e.target.value)}>
             <option value="">— wybierz —</option>
+            {value && !options.includes(value) && <option value={value}>{value} (archiwalne)</option>}
             {options.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
         )}
@@ -267,7 +269,7 @@ function SubModuleHeader({
     <div className="flex items-center justify-between mt-3 mb-2">
       <div className="flex items-center gap-2">
         {closed && <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />}
-        <p className={`text-xs font-semibold uppercase ${closed ? "text-green-600" : "text-gray-400"}`}>{title}</p>
+        <p className={`text-xs font-semibold uppercase ${closed ? "text-green-600" : "text-gray-700"}`}>{title}</p>
         {closed && <span className="text-xs text-green-700 bg-green-100 px-1 py-0 rounded">Zamknięty</span>}
       </div>
       {canEdit && (
@@ -343,8 +345,6 @@ export default function PzkTutloCasePage() {
   const [savingMod, setSavingMod] = useState<string | null>(null);
   const [editingDate, setEditingDate] = useState(false);
   const [dateValue, setDateValue] = useState("");
-  const [mailModal, setMailModal] = useState(false);
-  const [mailText, setMailText] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleteSaving, setDeleteSaving] = useState(false);
   // Contact log
@@ -448,6 +448,17 @@ export default function PzkTutloCasePage() {
     if (res.ok) setC(await res.json());
   }
 
+  async function closeModuleWithCascade(moduleFlag: string, subFlags: string[]) {
+    const updates: Record<string, boolean> = { [moduleFlag]: true };
+    for (const sf of subFlags) updates[sf] = true;
+    const res = await fetch(`/api/pzk/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    if (res.ok) setC(await res.json());
+  }
+
   async function handleSend() {
     setSendSaving(true);
     setSendResult(null);
@@ -506,15 +517,18 @@ export default function PzkTutloCasePage() {
     else setDeleteSaving(false);
   }
 
-  function openMailModal() {
+  function openMailWindow() {
     const collected = collectBraki(c!, user?.dept ?? null, user?.role ?? "EMPLOYEE");
     const brakiStr = collected.length > 0 ? collected.join(", ") : "[uzupełnij braki]";
     const endDate = c!.cooperationEndsAt
       ? new Date(c!.cooperationEndsAt).toLocaleDateString("pl-PL") : "[data]";
-    setMailText(
-      `Temat: Uzupełnienie braków przed końcem współpracy\n\nDzień dobry,\n\nW związku ze zbliżającym się końcem naszej współpracy (${endDate}), proszę o uzupełnienie braków: ${brakiStr}.\n\nProszę o dosłanie braków w ciągu [UZUPEŁNIJ TERMIN].\n\nW razie wątpliwości zapraszam do kontaktu, dziękuję.`
-    );
-    setMailModal(true);
+    const text = `Temat: Uzupełnienie braków przed końcem współpracy\n\nDzień dobry,\n\nW związku ze zbliżającym się końcem naszej współpracy (${endDate}), proszę o uzupełnienie braków: ${brakiStr}.\n\nProszę o dosłanie braków w ciągu [UZUPEŁNIJ TERMIN].\n\nW razie wątpliwości zapraszam do kontaktu, dziękuję.`;
+    const fullName = `${c!.firstNames} ${c!.lastName}`;
+    const w = window.open("", "_blank", "width=700,height=600");
+    if (w) {
+      w.document.write(`<!DOCTYPE html><html><head><title>Mail — ${fullName}</title><style>body{font-family:system-ui,sans-serif;padding:24px;background:#f9fafb}textarea{width:100%;height:350px;font-family:monospace;font-size:14px;padding:12px;border:1px solid #d1d5db;border-radius:8px;resize:vertical}button{margin-top:12px;padding:8px 20px;background:#2563eb;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px}button:hover{background:#1d4ed8}h2{margin:0 0 4px;font-size:16px;color:#111}p{margin:0 0 12px;font-size:12px;color:#6b7280}</style></head><body><h2>Mail do beneficjenta — ${fullName}</h2><p>Treść edytowalna — zaznaczone braki ze statusem żółtym/czerwonym.</p><textarea id="t">${text.replace(/</g, "&lt;")}</textarea><br><button onclick="navigator.clipboard.writeText(document.getElementById('t').value);this.textContent='Skopiowano!'">Kopiuj do schowka</button></body></html>`);
+      w.document.close();
+    }
   }
 
   async function addContact() {
@@ -620,7 +634,7 @@ export default function PzkTutloCasePage() {
               {c.emailInitialSent ? "Ponów wysyłkę" : "Wyślij sprawę"}
             </button>
           )}
-          <button onClick={openMailModal} className="text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 px-3 py-1.5 rounded-lg border">
+          <button onClick={openMailWindow} className="text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 px-3 py-1.5 rounded-lg border">
             Mail do beneficjenta
           </button>
           {!c.withdrawnFromNotice && canAdmin && (
@@ -791,7 +805,7 @@ export default function PzkTutloCasePage() {
           title="2. Dział Administracji"
           closed={c.mod2Closed}
           canEdit={canAdmin}
-          onToggleClose={() => { toggleModuleClosed("mod2Closed", c.mod2Closed); if (!c.mod2Closed) { if (!c.mod2AClosed) toggleModuleClosed("mod2AClosed", false); if (!c.mod2BClosed) toggleModuleClosed("mod2BClosed", false); if (!c.mod2CClosed) toggleModuleClosed("mod2CClosed", false); } }}
+          onToggleClose={() => c.mod2Closed ? toggleModuleClosed("mod2Closed", true) : closeModuleWithCascade("mod2Closed", ["mod2AClosed", "mod2BClosed", "mod2CClosed"])}
           onSave={() => saveModule("mod2Admin", mod2)}
           saving={savingMod === "mod2Admin"}
           isAdmin={isAdminOrSupervisor}
@@ -870,7 +884,7 @@ export default function PzkTutloCasePage() {
           title="4. Dział Księgowy"
           closed={c.mod4Closed}
           canEdit={canKsieg}
-          onToggleClose={() => { toggleModuleClosed("mod4Closed", c.mod4Closed); if (!c.mod4Closed) { if (!c.mod4AClosed) toggleModuleClosed("mod4AClosed", false); if (!c.mod4BClosed) toggleModuleClosed("mod4BClosed", false); } }}
+          onToggleClose={() => c.mod4Closed ? toggleModuleClosed("mod4Closed", true) : closeModuleWithCascade("mod4Closed", ["mod4AClosed", "mod4BClosed"])}
           onSave={() => saveModule("mod4Ksieg", mod4)}
           saving={savingMod === "mod4Ksieg"}
           isAdmin={isAdminOrSupervisor}
@@ -892,7 +906,7 @@ export default function PzkTutloCasePage() {
           title="5. Dział Legalizacji"
           closed={c.mod5Closed}
           canEdit={canLegal}
-          onToggleClose={() => { toggleModuleClosed("mod5Closed", c.mod5Closed); if (!c.mod5Closed) { if (!c.mod5AClosed) toggleModuleClosed("mod5AClosed", false); if (!c.mod5BClosed) toggleModuleClosed("mod5BClosed", false); } }}
+          onToggleClose={() => c.mod5Closed ? toggleModuleClosed("mod5Closed", true) : closeModuleWithCascade("mod5Closed", ["mod5AClosed", "mod5BClosed"])}
           onSave={() => saveModule("mod5Legal", mod5)}
           saving={savingMod === "mod5Legal"}
           isAdmin={isAdminOrSupervisor}
@@ -914,7 +928,7 @@ export default function PzkTutloCasePage() {
           title="6. Płatności"
           closed={c.mod6Closed}
           canEdit={canOplaty}
-          onToggleClose={() => { toggleModuleClosed("mod6Closed", c.mod6Closed); if (!c.mod6Closed) { if (!c.mod6AClosed) toggleModuleClosed("mod6AClosed", false); if (!c.mod6BClosed) toggleModuleClosed("mod6BClosed", false); if (!c.mod6CClosed) toggleModuleClosed("mod6CClosed", false); } }}
+          onToggleClose={() => c.mod6Closed ? toggleModuleClosed("mod6Closed", true) : closeModuleWithCascade("mod6Closed", ["mod6AClosed", "mod6BClosed", "mod6CClosed"])}
           onSave={() => saveModule("mod6Platnosci", mod6)}
           saving={savingMod === "mod6Platnosci"}
           isAdmin={isAdminOrSupervisor}
@@ -992,7 +1006,7 @@ export default function PzkTutloCasePage() {
           title="8. Inne"
           closed={c.mod8Closed}
           canEdit={canMod8}
-          onToggleClose={() => { toggleModuleClosed("mod8Closed", c.mod8Closed); if (!c.mod8Closed) { if (!c.mod8AClosed) toggleModuleClosed("mod8AClosed", false); if (!c.mod8BClosed) toggleModuleClosed("mod8BClosed", false); } }}
+          onToggleClose={() => c.mod8Closed ? toggleModuleClosed("mod8Closed", true) : closeModuleWithCascade("mod8Closed", ["mod8AClosed", "mod8BClosed"])}
           isAdmin={isAdminOrSupervisor}
           subModulesOpen={[...(!c.mod8AClosed ? ["8A"] : []), ...(!c.mod8BClosed ? ["8B"] : [])]}
           onSave={() => saveModule("mod8Inne", mod8)}
@@ -1122,32 +1136,6 @@ export default function PzkTutloCasePage() {
         </div>
       )}
 
-      {/* Mail modal */}
-      {mailModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg mx-4">
-            <h2 className="font-bold text-gray-900 mb-1">Mail do beneficjenta</h2>
-            <p className="text-xs text-gray-500 mb-3">Treść edytowalna — zaznaczone braki ze statusem żółtym/czerwonym.</p>
-            <textarea
-              value={mailText}
-              onChange={(e) => setMailText(e.target.value)}
-              rows={12}
-              className="w-full border rounded-lg p-3 text-sm font-mono resize-y"
-            />
-            <div className="flex gap-2 mt-3">
-              <button
-                onClick={() => { navigator.clipboard.writeText(mailText); }}
-                className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
-              >
-                Kopiuj do schowka
-              </button>
-              <button onClick={() => setMailModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
-                Zamknij
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
