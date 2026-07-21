@@ -578,6 +578,7 @@ export default function PzkTutloCasePage() {
   const isAdminOrSupervisor = user?.role === "ADMIN" || user?.role === "SUPERVISOR";
   const canAdmin = canEditModule(user?.dept ?? null, user?.role ?? "EMPLOYEE", "mod2");
   const canKadry = canEditModule(user?.dept ?? null, user?.role ?? "EMPLOYEE", "mod3");
+  const canEditWorkerField = canAdmin || user?.dept === "KADRY" || user?.dept === "HR";
   const canKsieg = canEditModule(user?.dept ?? null, user?.role ?? "EMPLOYEE", "mod4");
   const canLegal = canEditModule(user?.dept ?? null, user?.role ?? "EMPLOYEE", "mod5");
   const canOplaty = canEditModule(user?.dept ?? null, user?.role ?? "EMPLOYEE", "mod6");
@@ -791,11 +792,18 @@ export default function PzkTutloCasePage() {
           <div className="flex items-center gap-2 py-1.5 border-b border-gray-100">
             <span className="w-2.5 flex-shrink-0" />
             <span className="text-xs text-gray-500 w-48 flex-shrink-0">Pracownik odpowiedzialny</span>
-            {!canAdmin ? <span className="text-sm text-gray-700">{mod1Worker || "—"}</span> : (
-              <select className="text-sm border-0 bg-transparent focus:ring-0 p-0 cursor-pointer text-gray-800" value={mod1Worker} onChange={(e) => setMod1Worker(e.target.value)}>
-                <option value="">— wybierz —</option>
-                {workers.map((w) => <option key={w.id} value={w.fullName}>{w.fullName}{w.dept ? ` (${w.dept})` : ""}</option>)}
-              </select>
+            {!canEditWorkerField ? <span className="text-sm text-gray-700">{mod1Worker || "—"}</span> : (
+              <>
+                <select className="text-sm border-0 bg-transparent focus:ring-0 p-0 cursor-pointer text-gray-800" value={mod1Worker} onChange={(e) => setMod1Worker(e.target.value)}>
+                  <option value="">— wybierz —</option>
+                  {workers.map((w) => <option key={w.id} value={w.fullName}>{w.fullName}{w.dept ? ` (${w.dept})` : ""}</option>)}
+                </select>
+                {!canAdmin && (
+                  <button onClick={saveMod1} disabled={savingMod1} className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded hover:bg-blue-700 disabled:opacity-50 ml-2">
+                    {savingMod1 ? "..." : "Zapisz"}
+                  </button>
+                )}
+              </>
             )}
           </div>
         </ModuleCard>

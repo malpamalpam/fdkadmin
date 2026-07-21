@@ -33,7 +33,7 @@ const YELLOW_VALUES = new Set([
   "Do wyzerowania", "Do wyjaśnienia",
 ]);
 const RED_VALUES = new Set([
-  "Nie uzyskano", "Nie opłacono", "Potwierdzenie - brak",
+  "Nie uzyskano", "Potwierdzenie - brak",
   "Brak adresu zamieszkania", "Brak telefonu",
 ]);
 const GRAY_VALUES = new Set(["Nie dotyczy"]);
@@ -41,7 +41,7 @@ const GRAY_VALUES = new Set(["Nie dotyczy"]);
 export function getFieldColor(value: string | undefined | null): FieldColor {
   if (!value) return null;
   if (value.startsWith("Nie uzyskano")) return "red"; // includes "Nie uzyskano spłaty"
-  if (value.startsWith("Nie opłacono")) return "red";
+  if (value.startsWith("Nie opłacono")) return "yellow"; // "Nie opłacono: proszę uzupełnić" = action pending
   if (value.startsWith("Brak ")) return "red"; // "Brak adresu...", "Brak telefonu"
   if (GREEN_VALUES.has(value)) return "green";
   if (YELLOW_VALUES.has(value)) return "yellow";
@@ -519,7 +519,7 @@ export function getAmountColor(
   if (paymentStatus) {
     const sc = getFieldColor(paymentStatus);
     if (sc === "green") return "green";
-    if (paymentStatus.startsWith("Nie opłacono")) return "red";
+    if (paymentStatus.startsWith("Nie opłacono")) return "yellow"; // action pending
     if (paymentStatus.startsWith("Nie uzyskano")) return "red";
   }
   const n = parseFloat(amount.replace(",", "."));
