@@ -84,6 +84,34 @@ function TextField({
   );
 }
 
+// ─── Multi-line text field (auto-growing textarea) ───────────────────────
+
+function TextAreaField({
+  label, value, onChange, disabled,
+}: {
+  label: string; value: string | undefined; onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex items-start gap-2 py-1.5 border-b border-gray-100 last:border-0">
+      <span className="w-2.5 flex-shrink-0 mt-1" />
+      <span className="text-xs text-gray-500 w-48 flex-shrink-0 border-r border-gray-200 pr-2 mt-1">{label}</span>
+      {disabled ? (
+        <span className="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0 flex-1">{value || "—"}</span>
+      ) : (
+        <textarea
+          className="text-sm border rounded px-2 py-1 flex-1 min-w-0 text-gray-800 resize-y"
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="..."
+          rows={Math.max(2, (value || "").split("\n").length)}
+          style={{ minHeight: "2.5rem" }}
+        />
+      )}
+    </div>
+  );
+}
+
 // ─── Amount field ─────────────────────────────────────────────────────────────
 
 function AmountField({
@@ -867,9 +895,9 @@ export default function PzkCasePage() {
           subModulesOpen={[...(!c.mod3AClosed ? ["3A"] : []), ...(!c.mod3PayClosed ? ["3B"] : []), ...(!c.mod3LegitClosed ? ["3C"] : [])]}
         >
           <SubModuleHeader title="3A — Dokumenty" closed={c.mod3AClosed} canEdit={canKadry} onToggle={() => toggleModuleClosed("mod3AClosed", c.mod3AClosed)} />
-          <TextField label="Braki HR/Kadry – dokumenty" value={mod3.brakiKadryDok} onChange={(v) => setMod3(d => ({ ...d, brakiKadryDok: v }))} disabled={!canKadry} />
+          <TextAreaField label="Braki HR/Kadry – dokumenty" value={mod3.brakiKadryDok} onChange={(v) => setMod3(d => ({ ...d, brakiKadryDok: v }))} disabled={!canKadry} />
           <CommentField value={mod3.brakiKadryDokKomentarz} onChange={(v) => setMod3(d => ({ ...d, brakiKadryDokKomentarz: v }))} disabled={!canKadry} />
-          <TextField label="Uzupełnione" value={mod3.brakiKadryDokUzup} onChange={(v) => setMod3(d => ({ ...d, brakiKadryDokUzup: v }))} disabled={!canKadry} />
+          <TextAreaField label="Uzupełnione" value={mod3.brakiKadryDokUzup} onChange={(v) => setMod3(d => ({ ...d, brakiKadryDokUzup: v }))} disabled={!canKadry} />
           <CommentField value={mod3.brakiKadryDokUzupKomentarz} onChange={(v) => setMod3(d => ({ ...d, brakiKadryDokUzupKomentarz: v }))} disabled={!canKadry} />
 
           <SubModuleHeader title="3B — Płatności" closed={c.mod3PayClosed} canEdit={canKadry} onToggle={() => toggleModuleClosed("mod3PayClosed", c.mod3PayClosed)} />
@@ -953,8 +981,8 @@ export default function PzkCasePage() {
           subModulesOpen={[...(!c.mod4AClosed ? ["5A"] : []), ...(!c.mod4BClosed ? ["5B"] : [])]}
         >
           <SubModuleHeader title="5A — Dokumenty" closed={c.mod4AClosed} canEdit={canKsieg} onToggle={() => toggleModuleClosed("mod4AClosed", c.mod4AClosed)} />
-          <TextField label="Braki księgowość – dokumenty" value={mod4.brakiKsiegDok} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegDok: v }))} disabled={!canKsieg} />
-          <TextField label="Uzupełnione" value={mod4.brakiKsiegDokUzup} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegDokUzup: v }))} disabled={!canKsieg} />
+          <TextAreaField label="Braki księgowość – dokumenty" value={mod4.brakiKsiegDok} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegDok: v }))} disabled={!canKsieg} />
+          <TextAreaField label="Uzupełnione" value={mod4.brakiKsiegDokUzup} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegDokUzup: v }))} disabled={!canKsieg} />
 
           <SubModuleHeader title="5B — Płatności" closed={c.mod4BClosed} canEdit={canKsieg} onToggle={() => toggleModuleClosed("mod4BClosed", c.mod4BClosed)} />
           <AmountField label="Braki księgowość – płatności" value={mod4.brakiKsiegPlatnosci} paymentStatus={mod4.brakiKsiegPlatnosciStatus} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegPlatnosci: v }))} disabled={!canKsieg} />
@@ -967,22 +995,56 @@ export default function PzkCasePage() {
         <ModuleCard
           title="6. Dział Legalizacji"
           closed={c.mod5Closed}
-          canEdit={canLegal}
+          canEdit={canLegal || canAdmin}
           onToggleClose={() => c.mod5Closed ? toggleModuleClosed("mod5Closed", true) : closeModuleWithCascade("mod5Closed", ["mod5AClosed", "mod5BClosed"])}
           onSave={() => saveModule("mod5Legal", mod5)}
           saving={savingMod === "mod5Legal"}
           isAdmin={isAdminOrSupervisor}
           subModulesOpen={[...(!c.mod5AClosed ? ["6A"] : []), ...(!c.mod5BClosed ? ["6B"] : [])]}
         >
-          <SubModuleHeader title="6A — Dokumenty" closed={c.mod5AClosed} canEdit={canLegal} onToggle={() => toggleModuleClosed("mod5AClosed", c.mod5AClosed)} />
-          <TextField label="Braki legalizacja – dokumenty" value={mod5.brakiLegalDok} onChange={(v) => setMod5(d => ({ ...d, brakiLegalDok: v }))} disabled={!canLegal} />
-          <TextField label="Uzupełnione" value={mod5.brakiLegalDokUzup} onChange={(v) => setMod5(d => ({ ...d, brakiLegalDokUzup: v }))} disabled={!canLegal} />
+          {/* "Nie dotyczy — zamknij moduł" button */}
+          {(canLegal || canAdmin) && !c.mod5Closed && !mod5.legalNieDotyczy && (
+            <div className="mb-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setMod5(d => ({ ...d, legalNieDotyczy: true }));
+                }}
+                className="text-xs text-gray-500 border border-gray-300 px-3 py-1 rounded hover:bg-gray-50"
+              >
+                Nie dotyczy — zamknij moduł
+              </button>
+            </div>
+          )}
+          {mod5.legalNieDotyczy && !c.mod5Closed && (canLegal || canAdmin) && (
+            <div className="text-xs text-gray-400 mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-gray-300 inline-block" />
+              Oznaczony jako „Nie dotyczy" — kliknij Zapisz, aby zamknąć moduł automatycznie
+              <button
+                type="button"
+                onClick={() => setMod5(d => ({ ...d, legalNieDotyczy: false }))}
+                className="text-xs text-blue-500 hover:underline ml-1"
+              >
+                Cofnij
+              </button>
+            </div>
+          )}
+          {mod5.legalNieDotyczy && c.mod5Closed && (
+            <div className="text-xs text-gray-400 mb-3 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-gray-300 inline-block" />
+              Oznaczony jako „Nie dotyczy"
+            </div>
+          )}
 
-          <SubModuleHeader title="6B — Płatności" closed={c.mod5BClosed} canEdit={canLegal} onToggle={() => toggleModuleClosed("mod5BClosed", c.mod5BClosed)} />
-          <AmountField label="Braki legalizacja – płatności" value={mod5.brakiLegalPlatnosci} paymentStatus={mod5.brakiLegalPlatnosciStatus} onChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosci: v }))} disabled={!canLegal} />
-          <TextField label="Opłaty za" value={mod5.brakiLegalPlatnosciOplatyZa} onChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciOplatyZa: v }))} disabled={!canLegal} />
-          <PaymentStatusField label="Status opłat" value={mod5.brakiLegalPlatnosciStatus} nieOplacono={mod5.brakiLegalPlatnosciNieOplacono} nieUzyskano={mod5.brakiLegalPlatnosciNieUzyskano} options={PAYMENT_STATUS} onChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciStatus: v }))} onNieOplaconoChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciNieOplacono: v }))} onNieUzyskanoChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciNieUzyskano: v }))} disabled={!canLegal} />
-          <TextField label="Komentarz legalizacyjny" value={mod5.komentarzLegal} onChange={(v) => setMod5(d => ({ ...d, komentarzLegal: v }))} disabled={!canLegal} />
+          <SubModuleHeader title="6A — Dokumenty" closed={c.mod5AClosed || c.mod5Closed} canEdit={canLegal && !c.mod5Closed} onToggle={() => toggleModuleClosed("mod5AClosed", c.mod5AClosed)} />
+          <TextAreaField label="Braki legalizacja – dokumenty" value={mod5.brakiLegalDok} onChange={(v) => setMod5(d => ({ ...d, brakiLegalDok: v }))} disabled={!canLegal || c.mod5Closed} />
+          <TextAreaField label="Uzupełnione" value={mod5.brakiLegalDokUzup} onChange={(v) => setMod5(d => ({ ...d, brakiLegalDokUzup: v }))} disabled={!canLegal || c.mod5Closed} />
+
+          <SubModuleHeader title="6B — Płatności" closed={c.mod5BClosed || c.mod5Closed} canEdit={canLegal && !c.mod5Closed} onToggle={() => toggleModuleClosed("mod5BClosed", c.mod5BClosed)} />
+          <AmountField label="Braki legalizacja – płatności" value={mod5.brakiLegalPlatnosci} paymentStatus={mod5.brakiLegalPlatnosciStatus} onChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosci: v }))} disabled={!canLegal || c.mod5Closed} />
+          <TextField label="Opłaty za" value={mod5.brakiLegalPlatnosciOplatyZa} onChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciOplatyZa: v }))} disabled={!canLegal || c.mod5Closed} />
+          <PaymentStatusField label="Status opłat" value={mod5.brakiLegalPlatnosciStatus} nieOplacono={mod5.brakiLegalPlatnosciNieOplacono} nieUzyskano={mod5.brakiLegalPlatnosciNieUzyskano} options={PAYMENT_STATUS} onChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciStatus: v }))} onNieOplaconoChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciNieOplacono: v }))} onNieUzyskanoChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciNieUzyskano: v }))} disabled={!canLegal || c.mod5Closed} />
+          <TextField label="Komentarz legalizacyjny" value={mod5.komentarzLegal} onChange={(v) => setMod5(d => ({ ...d, komentarzLegal: v }))} disabled={!canLegal || c.mod5Closed} />
         </ModuleCard>
 
         {/* ── Module 7: Płatności ── */}

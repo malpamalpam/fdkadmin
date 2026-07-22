@@ -89,9 +89,16 @@ function computeAutoClose(moduleKey: string, data: Record<string, unknown>): Rec
   }
 
   if (moduleKey === "mod5Legal") {
-    // UI Module 6: 6B — payments
-    if (isGG(get(data, "brakiLegalPlatnosciStatus"))) result.mod5BClosed = true;
-    if (isGG(get(data, "brakiLegalPlatnosciStatus"))) result.mod5Closed = true;
+    if (data.legalNieDotyczy) {
+      // "Nie dotyczy — zamknij moduł" → close parent + all sub-modules
+      result.mod5Closed = true;
+      result.mod5AClosed = true;
+      result.mod5BClosed = true;
+    } else {
+      // UI Module 6: 6B — payments
+      if (isGG(get(data, "brakiLegalPlatnosciStatus"))) result.mod5BClosed = true;
+      if (isGG(get(data, "brakiLegalPlatnosciStatus"))) result.mod5Closed = true;
+    }
   }
 
   if (moduleKey === "mod6Platnosci") {

@@ -65,6 +65,28 @@ export async function PATCH(
     return NextResponse.json(existing);
   }
 
+  // Auto-manage legalization module when clientType changes
+  if (updates.clientType) {
+    const polishTypes = ["STANDARD_KADRY", "TUTLO_PL"];
+    const wasPolish = polishTypes.includes(existing.clientType);
+    const isNowPolish = polishTypes.includes(updates.clientType as string);
+    if (!wasPolish && isNowPolish) {
+      // Switched to Polish → auto-close legalization as ND
+      updates.mod5Closed = true;
+      updates.mod5AClosed = true;
+      updates.mod5BClosed = true;
+      updates.mod5Legal = { legalNieDotyczy: true };
+      historyEntries.push({ field: "mod5Closed", oldValue: "false", newValue: "true (auto: klient PL)" });
+    } else if (wasPolish && !isNowPolish) {
+      // Switched to foreigner → reopen legalization
+      updates.mod5Closed = false;
+      updates.mod5AClosed = false;
+      updates.mod5BClosed = false;
+      updates.mod5Legal = {};
+      historyEntries.push({ field: "mod5Closed", oldValue: "true", newValue: "false (auto: klient obcokrajowiec)" });
+    }
+  }
+
   const updated = await prisma.pzkCase.update({ where: { id }, data: updates });
 
   if (historyEntries.length) {

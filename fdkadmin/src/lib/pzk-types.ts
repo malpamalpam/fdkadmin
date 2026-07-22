@@ -159,6 +159,7 @@ export interface Mod4Ksieg {
 // ─── Module 6: Legalizacja (DB: mod5Legal) ───────────────────────────────────
 
 export interface Mod5Legal {
+  legalNieDotyczy?: boolean; // "Nie dotyczy — zamknij moduł"
   // 6A
   brakiLegalDok?: string;
   brakiLegalDokUzup?: string;
@@ -466,13 +467,15 @@ export function collectBraki(
     addYR("Status opłat księgowych", m.brakiKsiegPlatnosciStatus);
   }
 
-  // mod5Legal (UI module 6)
+  // mod5Legal (UI module 6) — skip if legalNieDotyczy
   if (isAdminLike || canEditModule(userDept, userRole, "mod5")) {
     const m = (c.mod5Legal || {}) as Mod5Legal;
-    if (m.brakiLegalDok && m.brakiLegalDok !== "Komplet")
-      braki.push(`Braki legalizacja – dokumenty: ${m.brakiLegalDok}`);
-    addAmount("Braki legalizacja – płatności", m.brakiLegalPlatnosci, m.brakiLegalPlatnosciStatus);
-    addYR("Status opłat legalizacji", m.brakiLegalPlatnosciStatus);
+    if (!m.legalNieDotyczy) {
+      if (m.brakiLegalDok && m.brakiLegalDok !== "Komplet")
+        braki.push(`Braki legalizacja – dokumenty: ${m.brakiLegalDok}`);
+      addAmount("Braki legalizacja – płatności", m.brakiLegalPlatnosci, m.brakiLegalPlatnosciStatus);
+      addYR("Status opłat legalizacji", m.brakiLegalPlatnosciStatus);
+    }
   }
 
   // mod6Platnosci (UI module 7)
@@ -593,9 +596,15 @@ export function countFieldColors(c: PzkCase): ColorCounts {
 
   // Module 6: Legalizacja (DB: mod5)
   const m5 = (c.mod5Legal || {}) as Mod5Legal;
+  const legalND = m5.legalNieDotyczy;
   const c6b = c.mod5BClosed;
-  check(m5.brakiLegalPlatnosciStatus, c6b);
-  checkAmount(m5.brakiLegalPlatnosci, m5.brakiLegalPlatnosciStatus, c6b);
+  if (legalND) {
+    checkGray(true); // legal payments → gray
+    checkGray(true); // legal amount → gray
+  } else {
+    check(m5.brakiLegalPlatnosciStatus, c6b);
+    checkAmount(m5.brakiLegalPlatnosci, m5.brakiLegalPlatnosciStatus, c6b);
+  }
 
   // Module 7: Płatności (DB: mod6)
   const m6 = (c.mod6Platnosci || {}) as Mod6Platnosci;

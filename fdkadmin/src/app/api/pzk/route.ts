@@ -73,6 +73,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Brakuje wymaganych pól" }, { status: 400 });
   }
 
+  // Auto-close legalization for Polish clients (Standard-Kadry, TUTLO-PL)
+  const isPolishClient = clientType === "STANDARD_KADRY" || clientType === "TUTLO_PL";
+
   try {
     const newCase = await prisma.pzkCase.create({
       data: {
@@ -85,6 +88,13 @@ export async function POST(request: NextRequest) {
         cooperationEndsAt: cooperationEndsAt ? new Date(cooperationEndsAt) : null,
         createdById: session.userId,
         createdByName: session.fullName,
+        // Auto-close legalization module for non-foreigner clients
+        ...(isPolishClient ? {
+          mod5Legal: { legalNieDotyczy: true },
+          mod5Closed: true,
+          mod5AClosed: true,
+          mod5BClosed: true,
+        } : {}),
       },
     });
 
