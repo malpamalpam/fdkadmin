@@ -385,12 +385,13 @@ export const TOTAL_CLOSE_UNITS = ALL_CLOSE_FLAGS.length; // 20
 
 export function closedUnitCount(c: PzkCase): number {
   let count = 0;
+  const rec = c as unknown as Record<string, unknown>;
   for (const flag of ALL_CLOSE_FLAGS) {
     // mod3BClosed (ubezp parent) closes all ubezp sub-modules
     if (flag === "mod4UbezpAClosed" || flag === "mod4UbezpBClosed") {
-      if (c.mod3BClosed || (c as Record<string, unknown>)[flag]) count++;
+      if (c.mod3BClosed || rec[flag]) count++;
     } else {
-      if ((c as Record<string, unknown>)[flag]) count++;
+      if (rec[flag]) count++;
     }
   }
   return count;
