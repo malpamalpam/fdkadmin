@@ -46,7 +46,7 @@ export async function POST(
     clientType: c.clientType as never,
     mod1Closed: c.mod1Closed,
     mod2Closed: c.mod2Closed,
-    mod3AClosed: c.mod3AClosed,
+    mod3Closed: c.mod3Closed,
     mod3BClosed: c.mod3BClosed,
     mod4Closed: c.mod4Closed,
     mod5Closed: c.mod5Closed,

@@ -6,14 +6,15 @@ import { canEditModule } from "@/lib/pzk-types";
 const MODULE_KEYS = ["mod2Admin", "mod3Kadry", "mod4Ksieg", "mod5Legal", "mod6Platnosci", "mod7Umowy", "mod8Inne"] as const;
 type ModuleKey = typeof MODULE_KEYS[number];
 
+// Permission key mapping — mod3Kadry is shared by UI modules 3 + 4
 const MODULE_PERM_KEY: Record<ModuleKey, string> = {
   mod2Admin: "mod2",
-  mod3Kadry: "mod3",
-  mod4Ksieg: "mod4",
-  mod5Legal: "mod5",
-  mod6Platnosci: "mod6",
-  mod7Umowy: "mod7",
-  mod8Inne: "mod8",
+  mod3Kadry: "mod3",        // Kadry sprawy + ubezpieczenia (same JSON blob, same dept access)
+  mod4Ksieg: "mod4",        // UI module 5
+  mod5Legal: "mod5",        // UI module 6
+  mod6Platnosci: "mod6",    // UI module 7
+  mod7Umowy: "mod7",        // UI module 8
+  mod8Inne: "mod8",         // UI module 9
 };
 
 // ─── Auto-close helpers ───────────────────────────────────────────────────────
@@ -57,64 +58,69 @@ function computeAutoClose(moduleKey: string, data: Record<string, unknown>): Rec
   }
 
   if (moduleKey === "mod3Kadry") {
-    // 3A: sprawy kadrowe — check payment status
-    if (isGG(get(data, "brakiKadryPlatnosciStatus"))) result.mod3AClosed = true;
-    // 3B: ubezpieczenia — require explicit values, not empty
-    const uzPlatnosci = get(data, "brakiUZPlatnosci");
-    if (uzPlatnosci === "Nie dotyczy") {
+    // UI Module 3: Kadry sprawy kadrowe
+    // 3B: płatności
+    if (isGG(get(data, "brakiKadryPlatnosciStatus"))) result.mod3PayClosed = true;
+    // 3C: legitymacje
+    const legit = get(data, "legitymacja");
+    if (legit === "Nie dotyczy" || legit === "Komplet") result.mod3LegitClosed = true;
+
+    // UI Module 4: Kadry ubezpieczenia
+    if (data.ubezpNieDotyczy) {
+      // "Nie dotyczy — zamknij moduł" → close parent + all sub-modules
       result.mod3BClosed = true;
-    } else if (uzPlatnosci && isGG(get(data, "brakiUZPlatnosciStatus")) && isGG(get(data, "zwua"))) {
-      result.mod3BClosed = true;
+      result.mod4UbezpAClosed = true;
+      result.mod4UbezpBClosed = true;
+    } else {
+      // 4A: UZ payments
+      const uzPlatnosci = get(data, "brakiUZPlatnosci");
+      if (uzPlatnosci === "Nie dotyczy" || isGG(get(data, "brakiUZPlatnosciStatus"))) {
+        result.mod4UbezpAClosed = true;
+      }
+      // 4B: ZWUA
+      if (isGG(get(data, "zwua"))) result.mod4UbezpBClosed = true;
     }
   }
 
   if (moduleKey === "mod4Ksieg") {
-    // 4A sub-module — documents
-    // 4B sub-module — payments
+    // UI Module 5: 5A — documents, 5B — payments
     if (isGG(get(data, "brakiKsiegPlatnosciStatus"))) result.mod4BClosed = true;
-    // Whole module
     if (isGG(get(data, "brakiKsiegPlatnosciStatus"))) result.mod4Closed = true;
   }
 
   if (moduleKey === "mod5Legal") {
-    // 5B sub-module — payments
+    // UI Module 6: 6B — payments
     if (isGG(get(data, "brakiLegalPlatnosciStatus"))) result.mod5BClosed = true;
-    // Whole module
     if (isGG(get(data, "brakiLegalPlatnosciStatus"))) result.mod5Closed = true;
   }
 
   if (moduleKey === "mod6Platnosci") {
-    // 6A — require explicit status
+    // UI Module 7: 7A, 7B (Multisport), 7C (Medicover)
     if (isGG(get(data, "oplatyWspolpracaStatus"))) result.mod6AClosed = true;
-    // 6B Multisport — only close if status is explicitly set (not empty)
     const multiStatus = get(data, "oplatyMultisportStatus");
     if (multiStatus && isGG(multiStatus)) result.mod6BClosed = true;
-    // 6C Medicover
     const mediStatus = get(data, "oplatyMedicoverStatus");
     if (mediStatus && isGG(mediStatus)) result.mod6CClosed = true;
-    // Whole module — all sub-modules must be explicitly closed
-    const m6aOk = isGG(get(data, "oplatyWspolpracaStatus"));
-    const m6bOk = multiStatus ? isGG(multiStatus) : false;
-    const m6cOk = mediStatus ? isGG(mediStatus) : false;
-    // Legacy fallback
+    // Whole module
+    const m7aOk = isGG(get(data, "oplatyWspolpracaStatus"));
+    const m7bOk = multiStatus ? isGG(multiStatus) : false;
+    const m7cOk = mediStatus ? isGG(mediStatus) : false;
     const legacyStatus = get(data, "oplatyBenefitStatus");
     const legacyOk = legacyStatus ? isGG(legacyStatus) : false;
-    const benefitOk = (multiStatus || mediStatus) ? (m6bOk && m6cOk) : legacyOk;
-    if (m6aOk && benefitOk) result.mod6Closed = true;
+    const benefitOk = (multiStatus || mediStatus) ? (m7bOk && m7cOk) : legacyOk;
+    if (m7aOk && benefitOk) result.mod6Closed = true;
   }
 
   if (moduleKey === "mod7Umowy") {
-    // Multi-entry B2B — require at least one entry with explicit status
+    // UI Module 8: 8A B2B, 8B Najem
     const b2bEntries = data.b2bEntries as Array<Record<string, unknown>> | undefined;
     if (b2bEntries?.length) {
       if (b2bEntries.every(e => (e.kontrahent as string) === "Nie dotyczy" || isGG(e.wypowiedzenie as string))) result.mod7AClosed = true;
     } else {
-      // Legacy — only close if field is explicitly set
       const b2bWyp = get(data, "b2bWypowiedzenie");
       const b2bKont = get(data, "b2bKontrahent");
       if (b2bKont === "Nie dotyczy" || (b2bWyp && isGG(b2bWyp))) result.mod7AClosed = true;
     }
-    // Multi-entry Najem
     const najmEntries = data.najmEntries as Array<Record<string, unknown>> | undefined;
     if (najmEntries?.length) {
       if (najmEntries.every(e => (e.umowa as string) === "Nie dotyczy" || isGG(e.wypowiedzenie as string))) result.mod7BClosed = true;
@@ -126,12 +132,11 @@ function computeAutoClose(moduleKey: string, data: Record<string, unknown>): Rec
   }
 
   if (moduleKey === "mod8Inne") {
-    // Multi-entry bramki — require entries with explicit status
+    // UI Module 9: 9A Bramki, 9B Domena
     const bramkiEntries = data.bramkiEntries as Array<Record<string, unknown>> | undefined;
     const bramkiOk = bramkiEntries?.length
       ? bramkiEntries.every(e => (e.rodzaj as string) === "Nie dotyczy" || isGG(e.status as string))
       : (get(data, "bramkiRodzaj") ? ((get(data, "bramkiRodzaj") === "Nie dotyczy") || isGG(get(data, "bramkiStatus"))) : false);
-    // Multi-entry domeny
     const domenaEntries = data.domenaEntries as Array<Record<string, unknown>> | undefined;
     const domenaOk = domenaEntries?.length
       ? domenaEntries.every(e => (e.rodzaj as string) === "Nie dotyczy" || isGG(e.status as string))

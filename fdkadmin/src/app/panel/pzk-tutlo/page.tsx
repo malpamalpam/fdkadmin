@@ -2,39 +2,14 @@
 
 import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
-import { PZK_CLIENT_TYPE_LABELS, PzkClientType, PzkCase, countFieldColors } from "@/lib/pzk-types";
-
-interface PzkListItem {
-  id: string;
-  createdAt: string;
-  panel: string;
-  lastName: string;
-  firstNames: string;
-  benefEmail: string | null;
-  clientType: PzkClientType;
-  responsibleWorker: string | null;
-  cooperationEndsAt: string | null;
-  withdrawnFromNotice: boolean;
-  caseClosed: boolean;
-  createdByName: string;
-  emailInitialSent: boolean;
-  mod1Closed: boolean; mod2Closed: boolean; mod3AClosed: boolean; mod3BClosed: boolean;
-  mod4Closed: boolean; mod5Closed: boolean; mod6Closed: boolean; mod7AClosed: boolean;
-  mod7BClosed: boolean; mod8Closed: boolean;
-}
+import { PZK_CLIENT_TYPE_LABELS, PzkClientType, PzkCase, countFieldColors, closedUnitCount, TOTAL_CLOSE_UNITS } from "@/lib/pzk-types";
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-function closedCount(item: PzkListItem): number {
-  return [item.mod1Closed, item.mod2Closed, item.mod3AClosed, item.mod3BClosed,
-    item.mod4Closed, item.mod5Closed, item.mod6Closed, item.mod7AClosed,
-    item.mod7BClosed, item.mod8Closed].filter(Boolean).length;
-}
-
-function getMonths(cases: PzkListItem[]): string[] {
+function getMonths(cases: PzkCase[]): string[] {
   const set = new Set<string>();
   for (const c of cases) {
     if (c.cooperationEndsAt) {
@@ -46,7 +21,7 @@ function getMonths(cases: PzkListItem[]): string[] {
 }
 
 export default function PzkTutloPage() {
-  const [cases, setCases] = useState<PzkListItem[]>([]);
+  const [cases, setCases] = useState<PzkCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [monthFilter, setMonthFilter] = useState("");
@@ -126,8 +101,8 @@ export default function PzkTutloPage() {
       ) : (
         <div className="space-y-2">
           {cases.map((c) => {
-            const closed = closedCount(c);
-            const total = 10;
+            const closed = closedUnitCount(c);
+            const total = TOTAL_CLOSE_UNITS;
             const allClosed = closed === total;
             return (
               <Link
@@ -155,7 +130,7 @@ export default function PzkTutloPage() {
                       <span>Koniec: <strong>{formatDate(c.cooperationEndsAt)}</strong></span>
                     </div>
                     {!c.withdrawnFromNotice && !c.caseClosed && (() => {
-                      const cc = countFieldColors(c as unknown as PzkCase);
+                      const cc = countFieldColors(c);
                       return (
                         <div className="flex gap-2 text-xs mt-0.5">
                           <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />{cc.green}</span>

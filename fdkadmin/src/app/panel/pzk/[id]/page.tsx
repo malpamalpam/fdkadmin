@@ -6,7 +6,7 @@ import {
   PzkCase, PzkClientType, Mod2Admin, Mod3Kadry, Mod4Ksieg, Mod5Legal,
   Mod6Platnosci, Mod7Umowy, Mod8Inne, ContactEntry,
   PZK_CLIENT_TYPE_LABELS, getFieldColor, getAmountColor, canEditModule, FieldColor,
-  collectBraki, countFieldColors,
+  collectBraki, countFieldColors, closedUnitCount, TOTAL_CLOSE_UNITS,
 } from "@/lib/pzk-types";
 import { useUser } from "@/lib/user-context";
 
@@ -665,16 +665,23 @@ export default function PzkCasePage() {
           {c.emailFinal28Sent && <span className="text-orange-700">Powiadomienie 28. wysłane</span>}
         </div>
         {/* Color summary */}
-        {(() => { const cc = countFieldColors(c); return (
-          <div className="flex flex-wrap gap-3 text-xs mb-2">
-            <span className="text-gray-500">Pól: <strong>{cc.total}</strong></span>
-            {cc.undefined > 0 && <span className="text-gray-400">Nieokreślone: <strong>{cc.undefined}</strong></span>}
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-green-500 inline-block" /> <strong>{cc.green}</strong></span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-yellow-400 inline-block" /> <strong>{cc.yellow}</strong></span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> <strong>{cc.red}</strong></span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-300 inline-block" /> <strong>{cc.gray}</strong></span>
-          </div>
-        ); })()}
+        {(() => {
+          const cc = countFieldColors(c);
+          const closedUnits = closedUnitCount(c);
+          return (
+            <div>
+              <div className="flex flex-wrap gap-3 text-xs mb-2">
+                <span className="text-gray-600">Moduły: <strong>{closedUnits}/{TOTAL_CLOSE_UNITS}</strong> zamknięte</span>
+                <span className="text-gray-500">Pól: <strong>{cc.total}</strong></span>
+                {cc.undefined > 0 && <span className="text-gray-400">Nieokreślone: <strong>{cc.undefined}</strong></span>}
+                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-green-500 inline-block" /> <strong>{cc.green}</strong></span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-yellow-400 inline-block" /> <strong>{cc.yellow}</strong></span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> <strong>{cc.red}</strong></span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-300 inline-block" /> <strong>{cc.gray}</strong></span>
+              </div>
+            </div>
+          );
+        })()}
         {/* mBank info */}
         {(() => { const m2 = (c.mod2Admin || {}) as Mod2Admin; return (m2.biezaceSwrodkiMBank || m2.biezaceSwrodkiKomentarz) ? (
           <div className="text-xs text-gray-600 mb-2 flex gap-3">
@@ -848,120 +855,166 @@ export default function PzkCasePage() {
           <TextField label="Komentarz (mBank)" value={mod2.biezaceSwrodkiKomentarz} onChange={(v) => setMod2(d => ({ ...d, biezaceSwrodkiKomentarz: v }))} disabled={!canAdmin} />
         </ModuleCard>
 
-        {/* ── Module 3: Kadry ── */}
+        {/* ── Module 3: Kadry — sprawy kadrowe ── */}
         <ModuleCard
-          title="3A. Dział Kadr — sprawy kadrowe"
-          closed={c.mod3AClosed}
+          title="3. Dział Kadr — sprawy kadrowe"
+          closed={c.mod3Closed}
           canEdit={canKadry}
-          onToggleClose={() => toggleModuleClosed("mod3AClosed", c.mod3AClosed)}
+          onToggleClose={() => c.mod3Closed ? toggleModuleClosed("mod3Closed", true) : closeModuleWithCascade("mod3Closed", ["mod3AClosed", "mod3PayClosed", "mod3LegitClosed"])}
           onSave={() => saveModule("mod3Kadry", mod3)}
           saving={savingMod === "mod3Kadry"}
+          isAdmin={isAdminOrSupervisor}
+          subModulesOpen={[...(!c.mod3AClosed ? ["3A"] : []), ...(!c.mod3PayClosed ? ["3B"] : []), ...(!c.mod3LegitClosed ? ["3C"] : [])]}
         >
+          <SubModuleHeader title="3A — Dokumenty" closed={c.mod3AClosed} canEdit={canKadry} onToggle={() => toggleModuleClosed("mod3AClosed", c.mod3AClosed)} />
           <TextField label="Braki HR/Kadry – dokumenty" value={mod3.brakiKadryDok} onChange={(v) => setMod3(d => ({ ...d, brakiKadryDok: v }))} disabled={!canKadry} />
           <CommentField value={mod3.brakiKadryDokKomentarz} onChange={(v) => setMod3(d => ({ ...d, brakiKadryDokKomentarz: v }))} disabled={!canKadry} />
           <TextField label="Uzupełnione" value={mod3.brakiKadryDokUzup} onChange={(v) => setMod3(d => ({ ...d, brakiKadryDokUzup: v }))} disabled={!canKadry} />
           <CommentField value={mod3.brakiKadryDokUzupKomentarz} onChange={(v) => setMod3(d => ({ ...d, brakiKadryDokUzupKomentarz: v }))} disabled={!canKadry} />
+
+          <SubModuleHeader title="3B — Płatności" closed={c.mod3PayClosed} canEdit={canKadry} onToggle={() => toggleModuleClosed("mod3PayClosed", c.mod3PayClosed)} />
           <AmountField label="Braki HR/Kadry – płatności" value={mod3.brakiKadryPlatnosci} paymentStatus={mod3.brakiKadryPlatnosciStatus} onChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosci: v }))} disabled={!canKadry} />
           <CommentField value={mod3.brakiKadryPlatnosciKomentarz} onChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosciKomentarz: v }))} disabled={!canKadry} />
           <TextField label="Opłaty za" value={mod3.brakiKadryPlatnosciOplatyZa} onChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosciOplatyZa: v }))} disabled={!canKadry} />
           <CommentField value={mod3.brakiKadryPlatnosciOplatyZaKomentarz} onChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosciOplatyZaKomentarz: v }))} disabled={!canKadry} />
           <PaymentStatusField label="Status opłat" value={mod3.brakiKadryPlatnosciStatus} nieOplacono={mod3.brakiKadryPlatnosciNieOplacono} nieUzyskano={mod3.brakiKadryPlatnosciNieUzyskano} options={PAYMENT_STATUS} onChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosciStatus: v }))} onNieOplaconoChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosciNieOplacono: v }))} onNieUzyskanoChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosciNieUzyskano: v }))} disabled={!canKadry} />
           <CommentField value={mod3.brakiKadryPlatnosciStatusKomentarz} onChange={(v) => setMod3(d => ({ ...d, brakiKadryPlatnosciStatusKomentarz: v }))} disabled={!canKadry} />
-          <TextField label="Legitymacja" value={mod3.legitymacja} onChange={(v) => setMod3(d => ({ ...d, legitymacja: v }))} disabled={!canKadry} />
+
+          <SubModuleHeader title="3C — Legitymacje" closed={c.mod3LegitClosed} canEdit={canKadry} onToggle={() => toggleModuleClosed("mod3LegitClosed", c.mod3LegitClosed)} />
+          <DropField label="Legitymacja" value={mod3.legitymacja} options={["Do wpisania", "Komplet", "Nie dotyczy"]} onChange={(v) => setMod3(d => ({ ...d, legitymacja: v }))} disabled={!canKadry} />
           <CommentField value={mod3.legitymacjaKomentarz} onChange={(v) => setMod3(d => ({ ...d, legitymacjaKomentarz: v }))} disabled={!canKadry} />
         </ModuleCard>
 
+        {/* ── Module 4: Kadry — ubezpieczenia ── */}
         <ModuleCard
-          title="3B. Dział Kadr — ubezpieczenia"
+          title="4. Dział Kadr — ubezpieczenia"
           closed={c.mod3BClosed}
           canEdit={canKadry}
-          onToggleClose={() => toggleModuleClosed("mod3BClosed", c.mod3BClosed)}
+          onToggleClose={() => c.mod3BClosed ? toggleModuleClosed("mod3BClosed", true) : closeModuleWithCascade("mod3BClosed", ["mod4UbezpAClosed", "mod4UbezpBClosed"])}
           onSave={() => saveModule("mod3Kadry", mod3)}
           saving={savingMod === "mod3Kadry"}
+          isAdmin={isAdminOrSupervisor}
+          subModulesOpen={[...(!c.mod4UbezpAClosed ? ["4A"] : []), ...(!c.mod4UbezpBClosed ? ["4B"] : [])]}
         >
-          <AmountField label="Braki UZ – płatności" value={mod3.brakiUZPlatnosci} paymentStatus={mod3.brakiUZPlatnosciStatus} onChange={(v) => setMod3(d => ({ ...d, brakiUZPlatnosci: v }))} disabled={!canKadry} />
-          <TextField label="Opłaty za" value={mod3.brakiUZPlatnosciOplatyZa} onChange={(v) => setMod3(d => ({ ...d, brakiUZPlatnosciOplatyZa: v }))} disabled={!canKadry} />
-          <PaymentStatusField label="Status opłat" value={mod3.brakiUZPlatnosciStatus} nieOplacono={mod3.brakiUZPlatnosciNieOplacono} nieUzyskano={mod3.brakiUZPlatnosciNieUzyskano} options={PAYMENT_STATUS} onChange={(v) => setMod3(d => ({ ...d, brakiUZPlatnosciStatus: v }))} onNieOplaconoChange={(v) => setMod3(d => ({ ...d, brakiUZPlatnosciNieOplacono: v }))} onNieUzyskanoChange={(v) => setMod3(d => ({ ...d, brakiUZPlatnosciNieUzyskano: v }))} disabled={!canKadry} />
-          <DropField label="ZWUA" value={mod3.zwua} options={ZWUA_STATUS} onChange={(v) => setMod3(d => ({ ...d, zwua: v as never }))} disabled={!canKadry} />
-          <TextField label="Data ZWUA" value={mod3.dataZwua} onChange={(v) => setMod3(d => ({ ...d, dataZwua: v }))} disabled={!canKadry} type="date" />
-          <TextField label="Komentarz kadrowy" value={mod3.komentarzKadrowy} onChange={(v) => setMod3(d => ({ ...d, komentarzKadrowy: v }))} disabled={!canKadry} />
+          {/* "Nie dotyczy — zamknij moduł" button */}
+          {canKadry && !c.mod3BClosed && !mod3.ubezpNieDotyczy && (
+            <div className="mb-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setMod3(d => ({ ...d, ubezpNieDotyczy: true }));
+                }}
+                className="text-xs text-gray-500 border border-gray-300 px-3 py-1 rounded hover:bg-gray-50"
+              >
+                Nie dotyczy — zamknij moduł
+              </button>
+            </div>
+          )}
+          {mod3.ubezpNieDotyczy && !c.mod3BClosed && canKadry && (
+            <div className="text-xs text-gray-400 mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-gray-300 inline-block" />
+              Oznaczony jako „Nie dotyczy" — kliknij Zapisz, aby zamknąć moduł automatycznie
+              <button
+                type="button"
+                onClick={() => setMod3(d => ({ ...d, ubezpNieDotyczy: false }))}
+                className="text-xs text-blue-500 hover:underline ml-1"
+              >
+                Cofnij
+              </button>
+            </div>
+          )}
+          {mod3.ubezpNieDotyczy && c.mod3BClosed && (
+            <div className="text-xs text-gray-400 mb-3 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-gray-300 inline-block" />
+              Oznaczony jako „Nie dotyczy"
+            </div>
+          )}
+
+          <SubModuleHeader title="4A — Płatności" closed={c.mod4UbezpAClosed || c.mod3BClosed} canEdit={canKadry && !c.mod3BClosed} onToggle={() => toggleModuleClosed("mod4UbezpAClosed", c.mod4UbezpAClosed)} />
+          <AmountField label="Braki UZ – płatności" value={mod3.brakiUZPlatnosci} paymentStatus={mod3.brakiUZPlatnosciStatus} onChange={(v) => setMod3(d => ({ ...d, brakiUZPlatnosci: v }))} disabled={!canKadry || c.mod3BClosed} />
+          <TextField label="Opłaty za" value={mod3.brakiUZPlatnosciOplatyZa} onChange={(v) => setMod3(d => ({ ...d, brakiUZPlatnosciOplatyZa: v }))} disabled={!canKadry || c.mod3BClosed} />
+          <PaymentStatusField label="Status opłat" value={mod3.brakiUZPlatnosciStatus} nieOplacono={mod3.brakiUZPlatnosciNieOplacono} nieUzyskano={mod3.brakiUZPlatnosciNieUzyskano} options={PAYMENT_STATUS} onChange={(v) => setMod3(d => ({ ...d, brakiUZPlatnosciStatus: v }))} onNieOplaconoChange={(v) => setMod3(d => ({ ...d, brakiUZPlatnosciNieOplacono: v }))} onNieUzyskanoChange={(v) => setMod3(d => ({ ...d, brakiUZPlatnosciNieUzyskano: v }))} disabled={!canKadry || c.mod3BClosed} />
+
+          <SubModuleHeader title="4B — ZWUA" closed={c.mod4UbezpBClosed || c.mod3BClosed} canEdit={canKadry && !c.mod3BClosed} onToggle={() => toggleModuleClosed("mod4UbezpBClosed", c.mod4UbezpBClosed)} />
+          <DropField label="ZWUA" value={mod3.zwua} options={ZWUA_STATUS} onChange={(v) => setMod3(d => ({ ...d, zwua: v as never }))} disabled={!canKadry || c.mod3BClosed} />
+          <TextField label="Data ZWUA" value={mod3.dataZwua} onChange={(v) => setMod3(d => ({ ...d, dataZwua: v }))} disabled={!canKadry || c.mod3BClosed} type="date" />
+          <TextField label="Komentarz kadrowy" value={mod3.komentarzKadrowy} onChange={(v) => setMod3(d => ({ ...d, komentarzKadrowy: v }))} disabled={!canKadry || c.mod3BClosed} />
         </ModuleCard>
 
-        {/* ── Module 4: Księgowość ── */}
+        {/* ── Module 5: Księgowość ── */}
         <ModuleCard
-          title="4. Dział Księgowy"
+          title="5. Dział Księgowy"
           closed={c.mod4Closed}
           canEdit={canKsieg}
           onToggleClose={() => c.mod4Closed ? toggleModuleClosed("mod4Closed", true) : closeModuleWithCascade("mod4Closed", ["mod4AClosed", "mod4BClosed"])}
           onSave={() => saveModule("mod4Ksieg", mod4)}
           saving={savingMod === "mod4Ksieg"}
           isAdmin={isAdminOrSupervisor}
-          subModulesOpen={[...(!c.mod4AClosed ? ["4A"] : []), ...(!c.mod4BClosed ? ["4B"] : [])]}
+          subModulesOpen={[...(!c.mod4AClosed ? ["5A"] : []), ...(!c.mod4BClosed ? ["5B"] : [])]}
         >
-          <SubModuleHeader title="4A — Dokumenty" closed={c.mod4AClosed} canEdit={canKsieg} onToggle={() => toggleModuleClosed("mod4AClosed", c.mod4AClosed)} />
+          <SubModuleHeader title="5A — Dokumenty" closed={c.mod4AClosed} canEdit={canKsieg} onToggle={() => toggleModuleClosed("mod4AClosed", c.mod4AClosed)} />
           <TextField label="Braki księgowość – dokumenty" value={mod4.brakiKsiegDok} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegDok: v }))} disabled={!canKsieg} />
           <TextField label="Uzupełnione" value={mod4.brakiKsiegDokUzup} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegDokUzup: v }))} disabled={!canKsieg} />
 
-          <SubModuleHeader title="4B — Płatności" closed={c.mod4BClosed} canEdit={canKsieg} onToggle={() => toggleModuleClosed("mod4BClosed", c.mod4BClosed)} />
+          <SubModuleHeader title="5B — Płatności" closed={c.mod4BClosed} canEdit={canKsieg} onToggle={() => toggleModuleClosed("mod4BClosed", c.mod4BClosed)} />
           <AmountField label="Braki księgowość – płatności" value={mod4.brakiKsiegPlatnosci} paymentStatus={mod4.brakiKsiegPlatnosciStatus} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegPlatnosci: v }))} disabled={!canKsieg} />
           <TextField label="Opłaty za" value={mod4.brakiKsiegPlatnosciOplatyZa} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegPlatnosciOplatyZa: v }))} disabled={!canKsieg} />
           <PaymentStatusField label="Status opłat" value={mod4.brakiKsiegPlatnosciStatus} nieOplacono={mod4.brakiKsiegPlatnosciNieOplacono} nieUzyskano={mod4.brakiKsiegPlatnosciNieUzyskano} options={PAYMENT_STATUS} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegPlatnosciStatus: v }))} onNieOplaconoChange={(v) => setMod4(d => ({ ...d, brakiKsiegPlatnosciNieOplacono: v }))} onNieUzyskanoChange={(v) => setMod4(d => ({ ...d, brakiKsiegPlatnosciNieUzyskano: v }))} disabled={!canKsieg} />
           <TextField label="Komentarz księgowy" value={mod4.komentarzKsieg} onChange={(v) => setMod4(d => ({ ...d, komentarzKsieg: v }))} disabled={!canKsieg} />
         </ModuleCard>
 
-        {/* ── Module 5: Legalizacja ── */}
+        {/* ── Module 6: Legalizacja ── */}
         <ModuleCard
-          title="5. Dział Legalizacji"
+          title="6. Dział Legalizacji"
           closed={c.mod5Closed}
           canEdit={canLegal}
           onToggleClose={() => c.mod5Closed ? toggleModuleClosed("mod5Closed", true) : closeModuleWithCascade("mod5Closed", ["mod5AClosed", "mod5BClosed"])}
           onSave={() => saveModule("mod5Legal", mod5)}
           saving={savingMod === "mod5Legal"}
           isAdmin={isAdminOrSupervisor}
-          subModulesOpen={[...(!c.mod5AClosed ? ["5A"] : []), ...(!c.mod5BClosed ? ["5B"] : [])]}
+          subModulesOpen={[...(!c.mod5AClosed ? ["6A"] : []), ...(!c.mod5BClosed ? ["6B"] : [])]}
         >
-          <SubModuleHeader title="5A — Dokumenty" closed={c.mod5AClosed} canEdit={canLegal} onToggle={() => toggleModuleClosed("mod5AClosed", c.mod5AClosed)} />
+          <SubModuleHeader title="6A — Dokumenty" closed={c.mod5AClosed} canEdit={canLegal} onToggle={() => toggleModuleClosed("mod5AClosed", c.mod5AClosed)} />
           <TextField label="Braki legalizacja – dokumenty" value={mod5.brakiLegalDok} onChange={(v) => setMod5(d => ({ ...d, brakiLegalDok: v }))} disabled={!canLegal} />
           <TextField label="Uzupełnione" value={mod5.brakiLegalDokUzup} onChange={(v) => setMod5(d => ({ ...d, brakiLegalDokUzup: v }))} disabled={!canLegal} />
 
-          <SubModuleHeader title="5B — Płatności" closed={c.mod5BClosed} canEdit={canLegal} onToggle={() => toggleModuleClosed("mod5BClosed", c.mod5BClosed)} />
+          <SubModuleHeader title="6B — Płatności" closed={c.mod5BClosed} canEdit={canLegal} onToggle={() => toggleModuleClosed("mod5BClosed", c.mod5BClosed)} />
           <AmountField label="Braki legalizacja – płatności" value={mod5.brakiLegalPlatnosci} paymentStatus={mod5.brakiLegalPlatnosciStatus} onChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosci: v }))} disabled={!canLegal} />
           <TextField label="Opłaty za" value={mod5.brakiLegalPlatnosciOplatyZa} onChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciOplatyZa: v }))} disabled={!canLegal} />
           <PaymentStatusField label="Status opłat" value={mod5.brakiLegalPlatnosciStatus} nieOplacono={mod5.brakiLegalPlatnosciNieOplacono} nieUzyskano={mod5.brakiLegalPlatnosciNieUzyskano} options={PAYMENT_STATUS} onChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciStatus: v }))} onNieOplaconoChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciNieOplacono: v }))} onNieUzyskanoChange={(v) => setMod5(d => ({ ...d, brakiLegalPlatnosciNieUzyskano: v }))} disabled={!canLegal} />
           <TextField label="Komentarz legalizacyjny" value={mod5.komentarzLegal} onChange={(v) => setMod5(d => ({ ...d, komentarzLegal: v }))} disabled={!canLegal} />
         </ModuleCard>
 
-        {/* ── Module 6: Płatności ── */}
+        {/* ── Module 7: Płatności ── */}
         <ModuleCard
-          title="6. Płatności"
+          title="7. Płatności"
           closed={c.mod6Closed}
           canEdit={canOplaty}
           onToggleClose={() => c.mod6Closed ? toggleModuleClosed("mod6Closed", true) : closeModuleWithCascade("mod6Closed", ["mod6AClosed", "mod6BClosed", "mod6CClosed"])}
           onSave={() => saveModule("mod6Platnosci", mod6)}
           saving={savingMod === "mod6Platnosci"}
           isAdmin={isAdminOrSupervisor}
-          subModulesOpen={[...(!c.mod6AClosed ? ["6A"] : []), ...(!c.mod6BClosed ? ["6B"] : []), ...(!c.mod6CClosed ? ["6C"] : [])]}
+          subModulesOpen={[...(!c.mod6AClosed ? ["7A"] : []), ...(!c.mod6BClosed ? ["7B"] : []), ...(!c.mod6CClosed ? ["7C"] : [])]}
         >
-          <SubModuleHeader title="6A — Opłaty za współpracę" closed={c.mod6AClosed} canEdit={canOplaty} onToggle={() => toggleModuleClosed("mod6AClosed", c.mod6AClosed)} />
+          <SubModuleHeader title="7A — Opłaty za współpracę" closed={c.mod6AClosed} canEdit={canOplaty} onToggle={() => toggleModuleClosed("mod6AClosed", c.mod6AClosed)} />
           <AmountField label="Kwota" value={mod6.oplatyWspolpraca} paymentStatus={mod6.oplatyWspolpracaStatus} onChange={(v) => setMod6(d => ({ ...d, oplatyWspolpraca: v }))} disabled={!canOplaty} />
           <TextField label="Opłaty za okres" value={mod6.oplatyWspolpracaZaOkres} onChange={(v) => setMod6(d => ({ ...d, oplatyWspolpracaZaOkres: v }))} disabled={!canOplaty} />
           <DropField label="Status opłat" value={mod6.oplatyWspolpracaStatus} options={PAYMENT_STATUS} onChange={(v) => setMod6(d => ({ ...d, oplatyWspolpracaStatus: v }))} disabled={!canOplaty} />
 
-          <SubModuleHeader title="6B — Opłaty Benefit – Multisport" closed={c.mod6BClosed} canEdit={canOplaty} onToggle={() => toggleModuleClosed("mod6BClosed", c.mod6BClosed)} />
+          <SubModuleHeader title="7B — Opłaty Benefit – Multisport" closed={c.mod6BClosed} canEdit={canOplaty} onToggle={() => toggleModuleClosed("mod6BClosed", c.mod6BClosed)} />
           <AmountField label="Kwota Multisport" value={mod6.oplatyMultisport} paymentStatus={mod6.oplatyMultisportStatus} onChange={(v) => setMod6(d => ({ ...d, oplatyMultisport: v }))} disabled={!canOplaty} />
           <TextField label="Opłaty za okres" value={mod6.oplatyMultisportZaOkres} onChange={(v) => setMod6(d => ({ ...d, oplatyMultisportZaOkres: v }))} disabled={!canOplaty} />
           <DropField label="Status opłat" value={mod6.oplatyMultisportStatus} options={[...PAYMENT_STATUS, "Nie dotyczy"]} onChange={(v) => setMod6(d => ({ ...d, oplatyMultisportStatus: v }))} disabled={!canOplaty} />
 
-          <SubModuleHeader title="6C — Opłaty Benefit – Medicover" closed={c.mod6CClosed} canEdit={canOplaty} onToggle={() => toggleModuleClosed("mod6CClosed", c.mod6CClosed)} />
+          <SubModuleHeader title="7C — Opłaty Benefit – Medicover" closed={c.mod6CClosed} canEdit={canOplaty} onToggle={() => toggleModuleClosed("mod6CClosed", c.mod6CClosed)} />
           <AmountField label="Kwota Medicover" value={mod6.oplatyMedicover} paymentStatus={mod6.oplatyMedicoverStatus} onChange={(v) => setMod6(d => ({ ...d, oplatyMedicover: v }))} disabled={!canOplaty} />
           <TextField label="Opłaty za okres" value={mod6.oplatyMedicoverZaOkres} onChange={(v) => setMod6(d => ({ ...d, oplatyMedicoverZaOkres: v }))} disabled={!canOplaty} />
           <DropField label="Status opłat" value={mod6.oplatyMedicoverStatus} options={[...PAYMENT_STATUS, "Nie dotyczy"]} onChange={(v) => setMod6(d => ({ ...d, oplatyMedicoverStatus: v }))} disabled={!canOplaty} />
         </ModuleCard>
 
-        {/* ── Module 7: Umowy ── */}
-        {/* ── Module 7A: Umowy B2B (multi-entry) ── */}
+        {/* ── Module 8A: Umowy B2B (multi-entry) ── */}
         <ModuleCard
-          title="7A. Umowy B2B"
+          title="8A. Umowy B2B"
           closed={c.mod7AClosed}
           canEdit={canB2B}
           onToggleClose={() => toggleModuleClosed("mod7AClosed", c.mod7AClosed)}
@@ -984,9 +1037,9 @@ export default function PzkCasePage() {
           {canB2B && <button type="button" onClick={() => setMod7(d => ({ ...d, b2bEntries: [...(d.b2bEntries || []), {}] }))} className="text-xs text-blue-600 hover:underline">+ Dodaj umowę B2B</button>}
         </ModuleCard>
 
-        {/* ── Module 7B: Umowy najmu (multi-entry) ── */}
+        {/* ── Module 8B: Umowy najmu (multi-entry) ── */}
         <ModuleCard
-          title="7B. Umowy najmu"
+          title="8B. Umowy najmu"
           closed={c.mod7BClosed}
           canEdit={canB2B}
           onToggleClose={() => toggleModuleClosed("mod7BClosed", c.mod7BClosed)}
@@ -1009,18 +1062,18 @@ export default function PzkCasePage() {
           {canB2B && <button type="button" onClick={() => setMod7(d => ({ ...d, najmEntries: [...(d.najmEntries || []), {}] }))} className="text-xs text-blue-600 hover:underline">+ Dodaj umowę najmu</button>}
         </ModuleCard>
 
-        {/* ── Module 8: Inne (multi-entry) ── */}
+        {/* ── Module 9: Inne (multi-entry) ── */}
         <ModuleCard
-          title="8. Inne"
+          title="9. Inne"
           closed={c.mod8Closed}
           canEdit={canMod8}
           onToggleClose={() => c.mod8Closed ? toggleModuleClosed("mod8Closed", true) : closeModuleWithCascade("mod8Closed", ["mod8AClosed", "mod8BClosed"])}
           isAdmin={isAdminOrSupervisor}
-          subModulesOpen={[...(!c.mod8AClosed ? ["8A"] : []), ...(!c.mod8BClosed ? ["8B"] : [])]}
+          subModulesOpen={[...(!c.mod8AClosed ? ["9A"] : []), ...(!c.mod8BClosed ? ["9B"] : [])]}
           onSave={() => saveModule("mod8Inne", mod8)}
           saving={savingMod === "mod8Inne"}
         >
-          <SubModuleHeader title="8A — Bramki płatności" closed={c.mod8AClosed} canEdit={canMod8} onToggle={() => toggleModuleClosed("mod8AClosed", c.mod8AClosed)} />
+          <SubModuleHeader title="9A — Bramki płatności" closed={c.mod8AClosed} canEdit={canMod8} onToggle={() => toggleModuleClosed("mod8AClosed", c.mod8AClosed)} />
           {(mod8.bramkiEntries || []).map((entry, i) => (
             <div key={i} className="mb-2 pb-2 border-b border-gray-100 last:border-0">
               <div className="flex items-center justify-between mb-1">
@@ -1034,7 +1087,7 @@ export default function PzkCasePage() {
           {(mod8.bramkiEntries || []).length === 0 && <p className="text-xs text-gray-400 mb-1">Brak wpisów</p>}
           {canMod8 && <button type="button" onClick={() => setMod8(d => ({ ...d, bramkiEntries: [...(d.bramkiEntries || []), {}] }))} className="text-xs text-blue-600 hover:underline mb-3 block">+ Dodaj bramkę</button>}
 
-          <SubModuleHeader title="8B — Domena/Hosting" closed={c.mod8BClosed} canEdit={canMod8} onToggle={() => toggleModuleClosed("mod8BClosed", c.mod8BClosed)} />
+          <SubModuleHeader title="9B — Domena/Hosting" closed={c.mod8BClosed} canEdit={canMod8} onToggle={() => toggleModuleClosed("mod8BClosed", c.mod8BClosed)} />
           {(mod8.domenaEntries || []).map((entry, i) => (
             <div key={i} className="mb-2 pb-2 border-b border-gray-100 last:border-0">
               <div className="flex items-center justify-between mb-1">

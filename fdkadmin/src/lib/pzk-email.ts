@@ -30,30 +30,29 @@ async function getDeptEmails(deptCode: string): Promise<string[]> {
   return [];
 }
 
-// ─── Routing table ────────────────────────────────────────────────────────────
+// ─── Routing table (new numbering: modules 1–9) ─────────────────────────────
 //
-// Returns list of { moduleLabel, emails } for a given case.
-// Only modules that should receive a notification are returned.
+// PZK (non-Tutlo):
+//   mod1+mod2 (1+2)  → administracja
+//   mod3 (3)         → KADRY | HR | HR_ENG (by clientType)
+//   mod4 (4)         → k.erbetowska (KADRY dept)
+//   mod5 (5)         → ksiegowosc
+//   mod6 (6)         → legalizacja (only foreigners)
+//   mod7 (7)         → m.niewiarowska (OPLATY dept)
+//   mod8A (8A)       → m.niewiarowska (OPLATY dept)
+//   mod8B (8B)       → m.niewiarowska (OPLATY dept)
+//   mod9 (9)         → p.wrobel (ADMINISTRACJA dept)
 //
-// Panel PZK (non-Tutlo):
-//   mod1+mod2 → administracja
-//   mod3A     → KADRY (Standard-Kadry) | HR (Obcokrajowiec-HR/HR.ENG) — note: in DB dept codes
-//   mod3B     → k.erbetowska email from KADRY dept or personal
-//   mod4      → ksiegowosc
-//   mod5      → legalizacja ONLY if Obcokrajowiec-HR or HR.ENG
-//   mod6      → m.niewiarowska (OPLATY dept)
-//   mod7      → b2b
-//   mod8      → p.wrobel (ADMINISTRACJA dept or personal)
-//
-// Panel PZK Tutlo:
-//   mod1+mod2 → p.wrobel (ADMINISTRACJA / TUTLO)
-//   mod3A     → tutlo dept (TUTLO)
-//   mod3B     → k.erbetowska
-//   mod4      → ksiegowosc
-//   mod5      → legalizacja ONLY if TUTLO_OBCOKRAJOWIEC
-//   mod6      → payments dept (OPLATY)
-//   mod7      → b2b
-//   mod8      → p.wrobel (ADMINISTRACJA)
+// PZK Tutlo:
+//   mod1+mod2 (1+2)  → p.wrobel (ADMINISTRACJA)
+//   mod3 (3)         → tutlo
+//   mod4 (4)         → k.erbetowska (KADRY)
+//   mod5 (5)         → ksiegowosc
+//   mod6 (6)         → legalizacja (only TUTLO_OBCOKRAJOWIEC)
+//   mod7 (7)         → payments (OPLATY dept)
+//   mod8A (8A)       → m.niewiarowska (OPLATY)
+//   mod8B (8B)       → m.niewiarowska (OPLATY)
+//   mod9 (9)         → p.wrobel (ADMINISTRACJA)
 
 export interface ModuleRecipient {
   moduleLabel: string;
@@ -64,28 +63,28 @@ export interface ModuleRecipient {
 export async function resolvePzkRecipients(opts: {
   panel: PzkPanel;
   clientType: PzkClientType;
-  mod3AClosed: boolean;
-  mod3BClosed: boolean;
-  mod4Closed: boolean;
-  mod5Closed: boolean;
-  mod6Closed: boolean;
-  mod7AClosed: boolean;
-  mod7BClosed: boolean;
-  mod8Closed: boolean;
   mod1Closed: boolean;
   mod2Closed: boolean;
+  mod3Closed: boolean;
+  mod3BClosed: boolean;  // ubezpieczenia parent
+  mod4Closed: boolean;   // księgowość parent (DB name)
+  mod5Closed: boolean;   // legalizacja parent (DB name)
+  mod6Closed: boolean;   // płatności parent (DB name)
+  mod7AClosed: boolean;  // umowy B2B
+  mod7BClosed: boolean;  // umowy najem
+  mod8Closed: boolean;   // inne parent (DB name)
 }): Promise<ModuleRecipient[]> {
   const { panel, clientType } = opts;
 
-  const [adminEmails, kadryEmails, hrEmails, ksiegEmails, legalEmails, oplatyEmails, b2bEmails, tutloEmails] =
+  const [adminEmails, kadryEmails, hrEmails, hrEngEmails, ksiegEmails, legalEmails, oplatyEmails, tutloEmails] =
     await Promise.all([
       getDeptEmails("ADMINISTRACJA"),
       getDeptEmails("KADRY"),
       getDeptEmails("HR"),
+      getDeptEmails("HR_ENG"),
       getDeptEmails("KSIEGOWOSC"),
       getDeptEmails("LEGALIZACJA"),
       getDeptEmails("OPLATY"),
-      getDeptEmails("B2B"),
       getDeptEmails("TUTLO"),
     ]);
 
@@ -93,72 +92,78 @@ export async function resolvePzkRecipients(opts: {
 
   // Module 1+2: Beneficjent + Administration
   if (!opts.mod1Closed || !opts.mod2Closed) {
-    const emails = panel === "PZK" ? adminEmails : tutloEmails.length ? tutloEmails : adminEmails;
+    const emails = panel === "PZK" ? adminEmails : adminEmails; // p.wrobel is in ADMINISTRACJA
     if (emails.length) {
       recipients.push({ moduleKey: "mod1", moduleLabel: "Beneficjent + Administracja", emails });
     }
   }
 
-  // Module 3A: Kadry – sprawy kadrowe
-  if (!opts.mod3AClosed) {
+  // Module 3: Kadry – sprawy kadrowe
+  if (!opts.mod3Closed) {
     let emails: string[] = [];
     if (panel === "PZK") {
       if (clientType === "STANDARD_KADRY") emails = kadryEmails;
-      else if (clientType === "OBCOKRAJOWIEC_HR" || clientType === "OBCOKRAJOWIEC_HR_ENG") emails = hrEmails;
-      // Tutlo types don't go to PZK panel mod3A in non-Tutlo routing
+      else if (clientType === "OBCOKRAJOWIEC_HR") emails = hrEmails;
+      else if (clientType === "OBCOKRAJOWIEC_HR_ENG") emails = hrEngEmails.length ? hrEngEmails : hrEmails;
     } else {
-      // PZK_TUTLO: mod3A → tutlo
+      // PZK_TUTLO: mod3 → tutlo
       emails = tutloEmails;
     }
     if (emails.length) {
-      recipients.push({ moduleKey: "mod3A", moduleLabel: "Kadry – sprawy kadrowe", emails });
+      recipients.push({ moduleKey: "mod3", moduleLabel: "Kadry – sprawy kadrowe", emails });
     }
   }
 
-  // Module 3B: Kadry – ubezpieczenia → always k.erbetowska (KADRY dept)
+  // Module 4: Kadry – ubezpieczenia → k.erbetowska (KADRY dept)
   if (!opts.mod3BClosed) {
     if (kadryEmails.length) {
-      recipients.push({ moduleKey: "mod3B", moduleLabel: "Kadry – ubezpieczenia", emails: kadryEmails });
+      recipients.push({ moduleKey: "mod4", moduleLabel: "Kadry – ubezpieczenia", emails: kadryEmails });
     }
   }
 
-  // Module 4: Księgowość – always
+  // Module 5: Księgowość
   if (!opts.mod4Closed) {
     if (ksiegEmails.length) {
-      recipients.push({ moduleKey: "mod4", moduleLabel: "Księgowość", emails: ksiegEmails });
+      recipients.push({ moduleKey: "mod5", moduleLabel: "Księgowość", emails: ksiegEmails });
     }
   }
 
-  // Module 5: Legalizacja – only for foreigners
+  // Module 6: Legalizacja – only for foreigners
   if (!opts.mod5Closed) {
     const isForeigner =
       panel === "PZK"
         ? clientType === "OBCOKRAJOWIEC_HR" || clientType === "OBCOKRAJOWIEC_HR_ENG"
         : clientType === "TUTLO_OBCOKRAJOWIEC";
     if (isForeigner && legalEmails.length) {
-      recipients.push({ moduleKey: "mod5", moduleLabel: "Legalizacja", emails: legalEmails });
+      recipients.push({ moduleKey: "mod6", moduleLabel: "Legalizacja", emails: legalEmails });
     }
   }
 
-  // Module 6: Płatności
+  // Module 7: Płatności → m.niewiarowska (OPLATY)
   if (!opts.mod6Closed) {
     if (oplatyEmails.length) {
-      recipients.push({ moduleKey: "mod6", moduleLabel: "Płatności", emails: oplatyEmails });
+      recipients.push({ moduleKey: "mod7", moduleLabel: "Płatności", emails: oplatyEmails });
     }
   }
 
-  // Module 7: Umowy B2B + Najem
-  if (!opts.mod7AClosed || !opts.mod7BClosed) {
-    if (b2bEmails.length) {
-      recipients.push({ moduleKey: "mod7", moduleLabel: "Umowy kontrahenckie", emails: b2bEmails });
+  // Module 8A: Umowy B2B → m.niewiarowska (OPLATY)
+  if (!opts.mod7AClosed) {
+    if (oplatyEmails.length) {
+      recipients.push({ moduleKey: "mod8A", moduleLabel: "Umowy B2B", emails: oplatyEmails });
     }
   }
 
-  // Module 8: Inne → administracja (or tutlo for PZK Tutlo)
+  // Module 8B: Umowy najmu → m.niewiarowska (OPLATY)
+  if (!opts.mod7BClosed) {
+    if (oplatyEmails.length) {
+      recipients.push({ moduleKey: "mod8B", moduleLabel: "Umowy najmu", emails: oplatyEmails });
+    }
+  }
+
+  // Module 9: Inne → p.wrobel (ADMINISTRACJA)
   if (!opts.mod8Closed) {
-    const emails = panel === "PZK" ? adminEmails : tutloEmails.length ? tutloEmails : adminEmails;
-    if (emails.length) {
-      recipients.push({ moduleKey: "mod8", moduleLabel: "Inne", emails });
+    if (adminEmails.length) {
+      recipients.push({ moduleKey: "mod9", moduleLabel: "Inne", emails: adminEmails });
     }
   }
 
@@ -169,6 +174,12 @@ export async function resolvePzkRecipients(opts: {
 
 export function allUniqueEmails(recipients: ModuleRecipient[]): string[] {
   return Array.from(new Set(recipients.flatMap((r) => r.emails)));
+}
+
+// ─── Subject prefix for Tutlo ───────────────────────────────────────────────
+
+function tutloPrefix(panel: PzkPanel): string {
+  return panel === "PZK_TUTLO" ? " TUTLO" : "";
 }
 
 // ─── Type A: Initial notification ────────────────────────────────────────────
@@ -183,9 +194,10 @@ export async function emailPzkInitial(opts: {
   recipients: ModuleRecipient[];
 }) {
   const { caseId, panel, fullName, cooperationEndsAt, isUrgent, urgentLabel, recipients } = opts;
+  const tp = tutloPrefix(panel);
   const subject = isUrgent
-    ? `Nowe wypowiedzenie – PILNE – ${fullName}`
-    : `Nowe wypowiedzenie – ${fullName}`;
+    ? `Nowe wypowiedzenie${tp} – PILNE – ${fullName}`
+    : `Nowe wypowiedzenie${tp} – ${fullName}`;
   const deadline = isUrgent && urgentLabel ? urgentLabel : "2 dni";
   const body = `Otrzymaliśmy wypowiedzenie Beneficjenta <strong>${fullName}</strong>, nasza współpraca zakończy się <strong>${cooperationEndsAt}</strong>. Proszę o wstępne sprawdzenie stanu spraw i uzupełnienie raportu w ciągu ${deadline}.`;
 
@@ -205,7 +217,8 @@ export async function emailPzkMid(opts: {
   recipients: ModuleRecipient[];
 }) {
   const { caseId, panel, fullName, cooperationEndsAt, recipients } = opts;
-  const subject = `Zamknięcie klienta – ${fullName}`;
+  const tp = tutloPrefix(panel);
+  const subject = `Zamknięcie klienta${tp} – ${fullName}`;
   const body = `Proszę o uzupełnienie spraw Beneficjenta <strong>${fullName}</strong>, nasza współpraca zakończy się <strong>${cooperationEndsAt}</strong> – do 20 dnia miesiąca.`;
 
   const allEmails = allUniqueEmails(recipients);
@@ -224,7 +237,8 @@ export async function emailPzkFinal(opts: {
   recipients: ModuleRecipient[];
 }) {
   const { caseId, panel, fullName, cooperationEndsAt, recipients } = opts;
-  const subject = `Ostateczne zamknięcie klienta – ${fullName}`;
+  const tp = tutloPrefix(panel);
+  const subject = `Ostateczne zamknięcie klienta${tp} – ${fullName}`;
   const body = `Proszę o uzupełnienie spraw Beneficjenta <strong>${fullName}</strong>, nasza współpraca zakończy się <strong>${cooperationEndsAt}</strong> w ciągu 1 dnia.`;
 
   const allEmails = allUniqueEmails(recipients);

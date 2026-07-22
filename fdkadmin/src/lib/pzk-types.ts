@@ -106,14 +106,17 @@ export interface Mod2Admin {
   biezaceSwrodkiKomentarz?: string;
 }
 
-// ─── Module 3: Kadry ──────────────────────────────────────────────────────────
+// ─── Module 3: Kadry — sprawy kadrowe ────────────────────────────────────────
+// ─── Module 4: Kadry — ubezpieczenia ─────────────────────────────────────────
+// Both stored in the same JSON blob (mod3Kadry in DB)
 
 export interface Mod3Kadry {
-  // 3A — per-field comments
+  // 3A — Dokumenty
   brakiKadryDok?: string; // "Do wpisania" | "Komplet" | "Nie uzyskano:…"
   brakiKadryDokKomentarz?: string;
   brakiKadryDokUzup?: string; // free text of what was completed
   brakiKadryDokUzupKomentarz?: string;
+  // 3B — Płatności
   brakiKadryPlatnosci?: string; // amount
   brakiKadryPlatnosciKomentarz?: string;
   brakiKadryPlatnosciOplatyZa?: string;
@@ -122,26 +125,29 @@ export interface Mod3Kadry {
   brakiKadryPlatnosciNieOplacono?: string; // remaining amount if partial
   brakiKadryPlatnosciNieUzyskano?: string; // permanently lost amount
   brakiKadryPlatnosciStatusKomentarz?: string;
-  legitymacja?: string; // "Do wpisania" | "Komplet" | "Nie uzyskano:…"
+  // 3C — Legitymacje
+  legitymacja?: string; // "Do wpisania" | "Komplet" | "Nie dotyczy"
   legitymacjaKomentarz?: string;
-  // 3B
+  // 4A — Płatności UZ (UI module 4: ubezpieczenia)
+  ubezpNieDotyczy?: boolean; // "Nie dotyczy — zamknij moduł"
   brakiUZPlatnosci?: string; // amount or "Nie dotyczy"
   brakiUZPlatnosciOplatyZa?: string;
   brakiUZPlatnosciStatus?: PaymentStatus;
   brakiUZPlatnosciNieOplacono?: string;
   brakiUZPlatnosciNieUzyskano?: string;
+  // 4B — ZWUA
   zwua?: "Wysłane" | "Do uzupełnienia";
   dataZwua?: string; // ISO date
   komentarzKadrowy?: string;
 }
 
-// ─── Module 4: Księgowość ─────────────────────────────────────────────────────
+// ─── Module 5: Księgowość (DB: mod4Ksieg) ────────────────────────────────────
 
 export interface Mod4Ksieg {
-  // 4A
+  // 5A
   brakiKsiegDok?: string; // "Do wpisania" | "Komplet" | "Nie uzyskano"
   brakiKsiegDokUzup?: string;
-  // 4B
+  // 5B
   brakiKsiegPlatnosci?: string; // amount
   brakiKsiegPlatnosciOplatyZa?: string;
   brakiKsiegPlatnosciStatus?: PaymentStatus;
@@ -150,13 +156,13 @@ export interface Mod4Ksieg {
   komentarzKsieg?: string;
 }
 
-// ─── Module 5: Legalizacja ────────────────────────────────────────────────────
+// ─── Module 6: Legalizacja (DB: mod5Legal) ───────────────────────────────────
 
 export interface Mod5Legal {
-  // 5A
+  // 6A
   brakiLegalDok?: string;
   brakiLegalDokUzup?: string;
-  // 5B
+  // 6B
   brakiLegalPlatnosci?: string;
   brakiLegalPlatnosciOplatyZa?: string;
   brakiLegalPlatnosciStatus?: PaymentStatus;
@@ -165,18 +171,18 @@ export interface Mod5Legal {
   komentarzLegal?: string;
 }
 
-// ─── Module 6: Płatności ──────────────────────────────────────────────────────
+// ─── Module 7: Płatności (DB: mod6Platnosci) ─────────────────────────────────
 
 export interface Mod6Platnosci {
-  // 6A
+  // 7A
   oplatyWspolpraca?: string; // amount
   oplatyWspolpracaZaOkres?: string;
   oplatyWspolpracaStatus?: PaymentStatus;
-  // 6B — Multisport
+  // 7B — Multisport
   oplatyMultisport?: string; // amount or "Nie dotyczy"
   oplatyMultisportZaOkres?: string;
   oplatyMultisportStatus?: PaymentStatus;
-  // 6C — Medicover
+  // 7C — Medicover
   oplatyMedicover?: string; // amount or "Nie dotyczy"
   oplatyMedicoverZaOkres?: string;
   oplatyMedicoverStatus?: PaymentStatus;
@@ -186,7 +192,7 @@ export interface Mod6Platnosci {
   oplatyBenefitStatus?: PaymentStatus;
 }
 
-// ─── Module 7: Umowy ──────────────────────────────────────────────────────────
+// ─── Module 8: Umowy (DB: mod7Umowy) ─────────────────────────────────────────
 
 export interface B2BEntry {
   kontrahent?: string;
@@ -203,9 +209,9 @@ export interface NajemEntry {
 }
 
 export interface Mod7Umowy {
-  // 7A B2B — multi-entry
+  // 8A B2B — multi-entry
   b2bEntries?: B2BEntry[];
-  // 7B Najem — multi-entry
+  // 8B Najem — multi-entry
   najmEntries?: NajemEntry[];
   // Legacy single-entry fields (backward compat)
   b2bKontrahent?: string;
@@ -218,7 +224,7 @@ export interface Mod7Umowy {
   najmDataWypowiedzenia?: string;
 }
 
-// ─── Module 8: Inne ───────────────────────────────────────────────────────────
+// ─── Module 9: Inne (DB: mod8Inne) ───────────────────────────────────────────
 
 export interface BramkaEntry {
   rodzaj?: "PayU" | "Stripe" | "inne" | "Nie dotyczy";
@@ -231,9 +237,9 @@ export interface DomenaEntry {
 }
 
 export interface Mod8Inne {
-  // 8A Bramki płatności — multi-entry
+  // 9A Bramki płatności — multi-entry
   bramkiEntries?: BramkaEntry[];
-  // 8B Domena/Hosting — multi-entry
+  // 9B Domena/Hosting — multi-entry
   domenaEntries?: DomenaEntry[];
   // Legacy single-entry fields (backward compat)
   bramkiRodzaj?: "PayU" | "Stripe" | "inne" | "Nie dotyczy";
@@ -255,6 +261,28 @@ export interface ContactEntry {
 }
 
 // ─── Composed PzkCase type (frontend) ────────────────────────────────────────
+//
+// DB column names are kept stable — UI renumbering is handled in the frontend.
+// Mapping: DB flag → UI module
+//   mod1Closed        → 1. Beneficjent
+//   mod2*Closed       → 2. Administracja (2A/2B/2C)
+//   mod3Closed        → 3. Kadry sprawy (parent)
+//   mod3AClosed       → 3A Dokumenty
+//   mod3PayClosed     → 3B Płatności
+//   mod3LegitClosed   → 3C Legitymacje
+//   mod3BClosed       → 4. Kadry ubezpieczenia (parent)
+//   mod4UbezpAClosed  → 4A Płatności UZ
+//   mod4UbezpBClosed  → 4B ZWUA
+//   mod4Closed        → 5. Księgowość (parent)
+//   mod4AClosed/BClosed → 5A/5B
+//   mod5Closed        → 6. Legalizacja (parent)
+//   mod5AClosed/BClosed → 6A/6B
+//   mod6Closed        → 7. Płatności (parent)
+//   mod6AClosed/BClosed/CClosed → 7A/7B/7C
+//   mod7AClosed       → 8A Umowy B2B
+//   mod7BClosed       → 8B Umowy najmu
+//   mod8Closed        → 9. Inne (parent)
+//   mod8AClosed/BClosed → 9A/9B
 
 export interface PzkCase {
   id: string;
@@ -280,13 +308,19 @@ export interface PzkCase {
   mod6Platnosci: Mod6Platnosci | null;
   mod7Umowy: Mod7Umowy | null;
   mod8Inne: Mod8Inne | null;
+  // Close flags
   mod1Closed: boolean;
   mod2Closed: boolean;
   mod2AClosed: boolean;
   mod2BClosed: boolean;
   mod2CClosed: boolean;
+  mod3Closed: boolean;
   mod3AClosed: boolean;
+  mod3PayClosed: boolean;
+  mod3LegitClosed: boolean;
   mod3BClosed: boolean;
+  mod4UbezpAClosed: boolean;
+  mod4UbezpBClosed: boolean;
   mod4Closed: boolean;
   mod4AClosed: boolean;
   mod4BClosed: boolean;
@@ -311,17 +345,18 @@ export interface PzkCase {
 }
 
 // ─── Module permission map ────────────────────────────────────────────────────
-// Which departments can edit which module
+// Which departments can edit which module (perm key → dept list)
 
 export const MODULE_DEPT_MAP: Record<string, string[]> = {
   mod1: ["ADMINISTRACJA", "TUTLO"],
   mod2: ["ADMINISTRACJA", "TUTLO"],
-  mod3: ["KADRY"],
-  mod4: ["KSIEGOWOSC"],
-  mod5: ["LEGALIZACJA"],
-  mod6: ["OPLATY"],
-  mod7: ["B2B"],
-  mod8: ["ADMINISTRACJA", "TUTLO", "B2B"],
+  mod3: ["KADRY", "HR", "HR_ENG"],     // Kadry sprawy — accessible by all kadry/HR depts
+  mod3b: ["KADRY", "HR", "HR_ENG"],    // Kadry ubezpieczenia — same depts (shared JSON blob)
+  mod4: ["KSIEGOWOSC"],                // UI module 5: Księgowość
+  mod5: ["LEGALIZACJA"],               // UI module 6: Legalizacja
+  mod6: ["OPLATY"],                    // UI module 7: Płatności
+  mod7: ["B2B"],                       // UI module 8: Umowy — B2B dept edits, OPLATY gets notifications
+  mod8: ["ADMINISTRACJA", "TUTLO"],    // UI module 9: Inne
 };
 
 export function canEditModule(userDept: string | null, userRole: string, moduleKey: string): boolean {
@@ -329,6 +364,36 @@ export function canEditModule(userDept: string | null, userRole: string, moduleK
   if (!userDept) return false;
   const allowed = MODULE_DEPT_MAP[moduleKey] || [];
   return allowed.includes(userDept);
+}
+
+// ─── Closeable unit counting ────────────────────────────────────────────────
+// 20 closeable sub-module units for the "Moduły: x/20" counter
+
+export const ALL_CLOSE_FLAGS = [
+  "mod1Closed",                               // 1. Beneficjent
+  "mod2AClosed", "mod2BClosed", "mod2CClosed", // 2. Administracja
+  "mod3AClosed", "mod3PayClosed", "mod3LegitClosed", // 3. Kadry sprawy
+  "mod4UbezpAClosed", "mod4UbezpBClosed",      // 4. Kadry ubezpieczenia
+  "mod4AClosed", "mod4BClosed",                // 5. Księgowość
+  "mod5AClosed", "mod5BClosed",                // 6. Legalizacja
+  "mod6AClosed", "mod6BClosed", "mod6CClosed", // 7. Płatności
+  "mod7AClosed", "mod7BClosed",                // 8. Umowy
+  "mod8AClosed", "mod8BClosed",                // 9. Inne
+] as const;
+
+export const TOTAL_CLOSE_UNITS = ALL_CLOSE_FLAGS.length; // 20
+
+export function closedUnitCount(c: PzkCase): number {
+  let count = 0;
+  for (const flag of ALL_CLOSE_FLAGS) {
+    // mod3BClosed (ubezp parent) closes all ubezp sub-modules
+    if (flag === "mod4UbezpAClosed" || flag === "mod4UbezpBClosed") {
+      if (c.mod3BClosed || (c as Record<string, unknown>)[flag]) count++;
+    } else {
+      if ((c as Record<string, unknown>)[flag]) count++;
+    }
+  }
+  return count;
 }
 
 // ─── Braki collector for mail generator ──────────────────────────────────────
@@ -349,7 +414,6 @@ export function collectBraki(
 
   function addAmount(label: string, amount: string | undefined, paymentStatus?: string) {
     if (!amount || amount === "Nie dotyczy") return;
-    // If payment status is green, skip (already paid)
     if (paymentStatus) {
       const sc = getFieldColor(paymentStatus);
       if (sc === "green") return;
@@ -358,7 +422,7 @@ export function collectBraki(
     if (!isNaN(n) && n > 0) braki.push(`${label}: ${amount} zł`);
   }
 
-  // mod2Admin
+  // mod2Admin (UI module 2)
   if (isAdminLike || canEditModule(userDept, userRole, "mod2")) {
     const m = (c.mod2Admin || {}) as Mod2Admin;
     addYR("Wypowiedzenie", m.wypowiedzenie);
@@ -375,20 +439,24 @@ export function collectBraki(
     addAmount("Bieżące środki mBank", m.biezaceSwrodkiMBank);
   }
 
-  // mod3Kadry
+  // mod3Kadry — UI modules 3 + 4
   if (isAdminLike || canEditModule(userDept, userRole, "mod3")) {
     const m = (c.mod3Kadry || {}) as Mod3Kadry;
+    // Module 3: sprawy kadrowe
     if (m.brakiKadryDok && m.brakiKadryDok !== "Komplet")
       braki.push(`Braki HR/Kadry – dokumenty: ${m.brakiKadryDok}`);
     addAmount("Braki HR/Kadry – płatności", m.brakiKadryPlatnosci, m.brakiKadryPlatnosciStatus);
     addYR("Status opłat kadrowych", m.brakiKadryPlatnosciStatus);
     if (m.legitymacja) addYR("Legitymacja", m.legitymacja);
-    if (m.brakiUZPlatnosci !== "Nie dotyczy") addAmount("Braki UZ – płatności", m.brakiUZPlatnosci, m.brakiUZPlatnosciStatus);
-    addYR("Status opłat UZ", m.brakiUZPlatnosciStatus);
-    addYR("ZWUA", m.zwua);
+    // Module 4: ubezpieczenia (skip if ND)
+    if (!m.ubezpNieDotyczy) {
+      if (m.brakiUZPlatnosci !== "Nie dotyczy") addAmount("Braki UZ – płatności", m.brakiUZPlatnosci, m.brakiUZPlatnosciStatus);
+      addYR("Status opłat UZ", m.brakiUZPlatnosciStatus);
+      addYR("ZWUA", m.zwua);
+    }
   }
 
-  // mod4Ksieg
+  // mod4Ksieg (UI module 5)
   if (isAdminLike || canEditModule(userDept, userRole, "mod4")) {
     const m = (c.mod4Ksieg || {}) as Mod4Ksieg;
     if (m.brakiKsiegDok && m.brakiKsiegDok !== "Komplet")
@@ -397,7 +465,7 @@ export function collectBraki(
     addYR("Status opłat księgowych", m.brakiKsiegPlatnosciStatus);
   }
 
-  // mod5Legal
+  // mod5Legal (UI module 6)
   if (isAdminLike || canEditModule(userDept, userRole, "mod5")) {
     const m = (c.mod5Legal || {}) as Mod5Legal;
     if (m.brakiLegalDok && m.brakiLegalDok !== "Komplet")
@@ -406,7 +474,7 @@ export function collectBraki(
     addYR("Status opłat legalizacji", m.brakiLegalPlatnosciStatus);
   }
 
-  // mod6Platnosci
+  // mod6Platnosci (UI module 7)
   if (isAdminLike || canEditModule(userDept, userRole, "mod6")) {
     const m = (c.mod6Platnosci || {}) as Mod6Platnosci;
     addAmount("Opłaty za współpracę", m.oplatyWspolpraca, m.oplatyWspolpracaStatus);
@@ -422,27 +490,23 @@ export function collectBraki(
     }
   }
 
-  // mod7Umowy
+  // mod7Umowy (UI module 8)
   if (isAdminLike || canEditModule(userDept, userRole, "mod7")) {
     const m = (c.mod7Umowy || {}) as Mod7Umowy;
-    // Multi-entry B2B
     if (m.b2bEntries?.length) {
       m.b2bEntries.forEach((e, i) => { if (e.kontrahent !== "Nie dotyczy") addYR(`Wypowiedzenie B2B #${i+1}`, e.wypowiedzenie); });
     } else if (m.b2bKontrahent !== "Nie dotyczy") addYR("Wypowiedzenie B2B", m.b2bWypowiedzenie);
-    // Multi-entry Najem
     if (m.najmEntries?.length) {
       m.najmEntries.forEach((e, i) => { if (e.umowa !== "Nie dotyczy") addYR(`Wypowiedzenie najmu #${i+1}`, e.wypowiedzenie); });
     } else if (m.najmUmowa !== "Nie dotyczy") addYR("Wypowiedzenie najmu", m.najmWypowiedzenie);
   }
 
-  // mod8Inne
+  // mod8Inne (UI module 9)
   if (isAdminLike || canEditModule(userDept, userRole, "mod8")) {
     const m = (c.mod8Inne || {}) as Mod8Inne;
-    // Multi-entry bramki
     if (m.bramkiEntries?.length) {
       m.bramkiEntries.forEach((e, i) => { if (e.rodzaj !== "Nie dotyczy") addYR(`Status bramki #${i+1}`, e.status); });
     } else if (m.bramkiRodzaj !== "Nie dotyczy") addYR("Status bramki płatności", m.bramkiStatus);
-    // Multi-entry domeny
     if (m.domenaEntries?.length) {
       m.domenaEntries.forEach((e, i) => { if (e.rodzaj !== "Nie dotyczy") addYR(`Status domena #${i+1}`, e.status); });
     } else if (m.domenaRodzaj !== "Nie dotyczy") addYR("Status domena/hosting", m.domenaStatus);
@@ -451,9 +515,9 @@ export function collectBraki(
   return braki;
 }
 
-// ─── Status color helpers for amount fields ───────────────────────────────────
-
 // ─── Color counting for summary ─────────────────────────────────────────────
+// Fields in closed sub-modules count as green (not undefined).
+// Fields in ubezp module with ubezpNieDotyczy count as gray.
 
 export interface ColorCounts {
   green: number; yellow: number; red: number; gray: number;
@@ -462,49 +526,104 @@ export interface ColorCounts {
 
 export function countFieldColors(c: PzkCase): ColorCounts {
   const counts: ColorCounts = { green: 0, yellow: 0, red: 0, gray: 0, total: 0, undefined: 0 };
-  function check(val: string | undefined | null) {
+
+  function check(val: string | undefined | null, closed?: boolean) {
     counts.total++;
+    if (closed) { counts.green++; return; }
     const col = getFieldColor(val);
     if (!col) { counts.undefined++; return; }
     counts[col]++;
   }
-  function checkAmount(amount: string | undefined, status?: string) {
+  function checkAmount(amount: string | undefined, status?: string, closed?: boolean) {
     counts.total++;
+    if (closed) { counts.green++; return; }
     const col = getAmountColor(amount, status);
     if (!col) { counts.undefined++; return; }
     counts[col]++;
   }
+  function checkGray(closed?: boolean) {
+    counts.total++;
+    if (closed) { counts.gray++; return; }
+    counts.undefined++;
+  }
+
+  // Module 2: Administracja
   const m2 = (c.mod2Admin || {}) as Mod2Admin;
-  check(m2.wypowiedzenie); check(m2.pesel); check(m2.daneKontaktowe);
-  check(m2.umowa); check(m2.rodo); check(m2.oswiadczenieTworcy);
-  check(m2.krk); check(m2.oswiadczenieElektroniczne);
-  check(m2.benefitSystem); check(m2.kontoMBank); check(m2.kontoCRM);
-  checkAmount(m2.biezaceSwrodkiMBank); check(m2.biezaceSwrodkiStatus);
+  const c2a = c.mod2AClosed;
+  check(m2.wypowiedzenie, c2a);
+  const c2b = c.mod2BClosed;
+  check(m2.pesel, c2b); check(m2.daneKontaktowe, c2b);
+  check(m2.umowa, c2b); check(m2.rodo, c2b); check(m2.oswiadczenieTworcy, c2b);
+  check(m2.krk, c2b); check(m2.oswiadczenieElektroniczne, c2b);
+  const c2c = c.mod2CClosed;
+  check(m2.benefitSystem, c2c); check(m2.kontoMBank, c2c); check(m2.kontoCRM, c2c);
+  checkAmount(m2.biezaceSwrodkiMBank, undefined, c2c); check(m2.biezaceSwrodkiStatus, c2c);
+
+  // Module 3: Kadry sprawy
   const m3 = (c.mod3Kadry || {}) as Mod3Kadry;
-  check(m3.brakiKadryPlatnosciStatus); check(m3.legitymacja);
-  check(m3.brakiUZPlatnosciStatus); check(m3.zwua);
-  checkAmount(m3.brakiKadryPlatnosci, m3.brakiKadryPlatnosciStatus);
-  checkAmount(m3.brakiUZPlatnosci, m3.brakiUZPlatnosciStatus);
+  const c3a = c.mod3AClosed;
+  // 3A has text fields — no color dots to count
+  const c3b = c.mod3PayClosed;
+  check(m3.brakiKadryPlatnosciStatus, c3b);
+  checkAmount(m3.brakiKadryPlatnosci, m3.brakiKadryPlatnosciStatus, c3b);
+  const c3c = c.mod3LegitClosed;
+  check(m3.legitymacja, c3c);
+
+  // Module 4: Kadry ubezpieczenia
+  const ubezpClosed = c.mod3BClosed;
+  const ubezpND = m3.ubezpNieDotyczy;
+  const c4a = ubezpClosed || c.mod4UbezpAClosed;
+  const c4b = ubezpClosed || c.mod4UbezpBClosed;
+  if (ubezpND) {
+    checkGray(true); // UZ payments → gray
+    checkGray(true); // UZ amount → gray
+    checkGray(true); // ZWUA → gray
+  } else {
+    check(m3.brakiUZPlatnosciStatus, c4a);
+    checkAmount(m3.brakiUZPlatnosci, m3.brakiUZPlatnosciStatus, c4a);
+    check(m3.zwua, c4b);
+  }
+
+  // Module 5: Księgowość (DB: mod4)
   const m4 = (c.mod4Ksieg || {}) as Mod4Ksieg;
-  check(m4.brakiKsiegPlatnosciStatus);
-  checkAmount(m4.brakiKsiegPlatnosci, m4.brakiKsiegPlatnosciStatus);
+  const c5b = c.mod4BClosed;
+  check(m4.brakiKsiegPlatnosciStatus, c5b);
+  checkAmount(m4.brakiKsiegPlatnosci, m4.brakiKsiegPlatnosciStatus, c5b);
+
+  // Module 6: Legalizacja (DB: mod5)
   const m5 = (c.mod5Legal || {}) as Mod5Legal;
-  check(m5.brakiLegalPlatnosciStatus);
-  checkAmount(m5.brakiLegalPlatnosci, m5.brakiLegalPlatnosciStatus);
+  const c6b = c.mod5BClosed;
+  check(m5.brakiLegalPlatnosciStatus, c6b);
+  checkAmount(m5.brakiLegalPlatnosci, m5.brakiLegalPlatnosciStatus, c6b);
+
+  // Module 7: Płatności (DB: mod6)
   const m6 = (c.mod6Platnosci || {}) as Mod6Platnosci;
-  check(m6.oplatyWspolpracaStatus);
-  check(m6.oplatyMultisportStatus); check(m6.oplatyMedicoverStatus);
-  checkAmount(m6.oplatyWspolpraca, m6.oplatyWspolpracaStatus);
+  const c7a = c.mod6AClosed;
+  check(m6.oplatyWspolpracaStatus, c7a);
+  checkAmount(m6.oplatyWspolpraca, m6.oplatyWspolpracaStatus, c7a);
+  const c7b = c.mod6BClosed;
+  check(m6.oplatyMultisportStatus, c7b);
+  const c7c = c.mod6CClosed;
+  check(m6.oplatyMedicoverStatus, c7c);
+
+  // Module 8: Umowy (DB: mod7)
   const m7 = (c.mod7Umowy || {}) as Mod7Umowy;
-  if (m7.b2bEntries?.length) m7.b2bEntries.forEach(e => check(e.wypowiedzenie));
-  else { check(m7.b2bWypowiedzenie); }
-  if (m7.najmEntries?.length) m7.najmEntries.forEach(e => check(e.wypowiedzenie));
-  else { check(m7.najmWypowiedzenie); }
+  const c8a = c.mod7AClosed;
+  if (m7.b2bEntries?.length) m7.b2bEntries.forEach(e => check(e.wypowiedzenie, c8a));
+  else { check(m7.b2bWypowiedzenie, c8a); }
+  const c8b = c.mod7BClosed;
+  if (m7.najmEntries?.length) m7.najmEntries.forEach(e => check(e.wypowiedzenie, c8b));
+  else { check(m7.najmWypowiedzenie, c8b); }
+
+  // Module 9: Inne (DB: mod8)
   const m8 = (c.mod8Inne || {}) as Mod8Inne;
-  if (m8.bramkiEntries?.length) m8.bramkiEntries.forEach(e => check(e.status));
-  else { check(m8.bramkiStatus); }
-  if (m8.domenaEntries?.length) m8.domenaEntries.forEach(e => check(e.status));
-  else { check(m8.domenaStatus); }
+  const c9a = c.mod8AClosed;
+  if (m8.bramkiEntries?.length) m8.bramkiEntries.forEach(e => check(e.status, c9a));
+  else { check(m8.bramkiStatus, c9a); }
+  const c9b = c.mod8BClosed;
+  if (m8.domenaEntries?.length) m8.domenaEntries.forEach(e => check(e.status, c9b));
+  else { check(m8.domenaStatus, c9b); }
+
   return counts;
 }
 

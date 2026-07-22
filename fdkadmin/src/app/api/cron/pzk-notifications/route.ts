@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
   for (const c of cases) {
     // Skip if ALL modules are closed
     const allClosed =
-      c.mod1Closed && c.mod2Closed && c.mod3AClosed && c.mod3BClosed &&
+      c.mod1Closed && c.mod2Closed && c.mod3Closed && c.mod3BClosed &&
       c.mod4Closed && c.mod5Closed && c.mod6Closed && c.mod7AClosed &&
       c.mod7BClosed && c.mod8Closed;
     if (allClosed) continue;
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
       clientType: c.clientType as PzkClientType,
       mod1Closed: c.mod1Closed,
       mod2Closed: c.mod2Closed,
-      mod3AClosed: c.mod3AClosed,
+      mod3Closed: c.mod3Closed,
       mod3BClosed: c.mod3BClosed,
       mod4Closed: c.mod4Closed,
       mod5Closed: c.mod5Closed,
