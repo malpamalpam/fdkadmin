@@ -8,6 +8,8 @@ export const DEPT_LABELS: Record<string, string> = {
   OPLATY: "Opłaty",
   LEGALIZACJA: "Legalizacja",
   TUTLO: "Tutlo",
+  TUTLO_OPLATY: "Tutlo – Opłaty",
+  TUTLO_KSIEGOWOSC: "Tutlo – Księgowość",
   INNY: "Inny",
 };
 

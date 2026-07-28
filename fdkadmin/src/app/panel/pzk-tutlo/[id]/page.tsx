@@ -546,7 +546,7 @@ export default function PzkCasePage() {
   }
 
   function openMailWindow() {
-    const collected = collectBraki(c!, user?.dept ?? null, user?.role ?? "EMPLOYEE");
+    const collected = collectBraki(c!, user?.dept ?? null, user?.role ?? "EMPLOYEE", uExtra);
     const brakiStr = collected.length > 0 ? collected.join(", ") : "[uzupełnij braki]";
     const endDate = c!.cooperationEndsAt
       ? new Date(c!.cooperationEndsAt).toLocaleDateString("pl-PL") : "[data]";
@@ -604,14 +604,17 @@ export default function PzkCasePage() {
 
   const fullName = `${c.firstNames} ${c.lastName}`;
   const isAdminOrSupervisor = user?.role === "ADMIN" || user?.role === "SUPERVISOR";
-  const canAdmin = canEditModule(user?.dept ?? null, user?.role ?? "EMPLOYEE", "mod2");
-  const canKadry = canEditModule(user?.dept ?? null, user?.role ?? "EMPLOYEE", "mod3");
-  const canEditWorkerField = canAdmin || user?.dept === "KADRY" || user?.dept === "HR";
-  const canKsieg = canEditModule(user?.dept ?? null, user?.role ?? "EMPLOYEE", "mod4");
-  const canLegal = canEditModule(user?.dept ?? null, user?.role ?? "EMPLOYEE", "mod5");
-  const canOplaty = canEditModule(user?.dept ?? null, user?.role ?? "EMPLOYEE", "mod6");
-  const canB2B = canEditModule(user?.dept ?? null, user?.role ?? "EMPLOYEE", "mod7");
-  const canMod8 = canEditModule(user?.dept ?? null, user?.role ?? "EMPLOYEE", "mod8");
+  const uDept = user?.dept ?? null;
+  const uRole = user?.role ?? "EMPLOYEE";
+  const uExtra = (user as unknown as { extraDepts?: string[] })?.extraDepts;
+  const canAdmin = canEditModule(uDept, uRole, "mod2", uExtra);
+  const canKadry = canEditModule(uDept, uRole, "mod3", uExtra);
+  const canEditWorkerField = canAdmin || user?.dept === "KADRY" || user?.dept === "HR" || uExtra?.includes("KADRY") || uExtra?.includes("HR");
+  const canKsieg = canEditModule(uDept, uRole, "mod4", uExtra);
+  const canLegal = canEditModule(uDept, uRole, "mod5", uExtra);
+  const canOplaty = canEditModule(uDept, uRole, "mod6", uExtra);
+  const canB2B = canEditModule(uDept, uRole, "mod7", uExtra);
+  const canMod8 = canEditModule(uDept, uRole, "mod8", uExtra);
 
   const panelPath = c.panel === "PZK_TUTLO" ? "/panel/pzk-tutlo" : "/panel/pzk";
 

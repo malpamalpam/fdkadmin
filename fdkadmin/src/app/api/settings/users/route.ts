@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
       email: true,
       teamsUpn: true,
       dept: true,
+      extraDepts: true,
       role: true,
       gender: true,
       position: true,
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { login, fullName, password, email, teamsUpn, dept, role, gender, position } = body;
+  const { login, fullName, password, email, teamsUpn, dept, extraDepts, role, gender, position } = body;
 
   if (!login || !fullName || !password) {
     return NextResponse.json({ error: "Login, imię i nazwisko oraz hasło są wymagane" }, { status: 400 });
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
           email: email || null,
           teamsUpn: teamsUpn || null,
           dept: dept || null,
+          extraDepts: Array.isArray(extraDepts) ? extraDepts : [],
           role: role || "EMPLOYEE",
           gender: gender || "K",
           position: position || null,
@@ -86,6 +88,7 @@ export async function POST(request: NextRequest) {
       email: email || null,
       teamsUpn: teamsUpn || null,
       dept: dept || null,
+      extraDepts: Array.isArray(extraDepts) ? extraDepts : [],
       role: role || "EMPLOYEE",
       gender: gender || "K",
       position: position || null,
@@ -106,7 +109,7 @@ export async function PUT(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { id, fullName, email, teamsUpn, dept, role, gender, position } = body;
+  const { id, fullName, email, teamsUpn, dept, extraDepts, role, gender, position } = body;
 
   if (!id) {
     return NextResponse.json({ error: "ID użytkownika jest wymagane" }, { status: 400 });
@@ -117,6 +120,7 @@ export async function PUT(request: NextRequest) {
   if (email !== undefined) updateData.email = email || null;
   if (teamsUpn !== undefined) updateData.teamsUpn = teamsUpn || null;
   if (dept !== undefined) updateData.dept = dept || null;
+  if (extraDepts !== undefined) updateData.extraDepts = Array.isArray(extraDepts) ? extraDepts : [];
   if (role !== undefined) updateData.role = role;
   if (gender !== undefined) updateData.gender = gender;
   if (position !== undefined) updateData.position = position || null;

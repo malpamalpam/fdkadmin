@@ -7,6 +7,7 @@ export interface UserData {
   login: string;
   fullName: string;
   dept: string | null;
+  extraDepts: string[];
   role: "ADMIN" | "SUPERVISOR" | "EMPLOYEE";
   gender: "K" | "M";
   position: string | null;

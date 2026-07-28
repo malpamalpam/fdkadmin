@@ -23,8 +23,9 @@ export async function GET(request: NextRequest) {
       { takerId: session.userId },
       { ownerId: session.userId },
     ];
-    if (session.dept) {
-      orConditions.push({ dept: session.dept });
+    const allDepts = [session.dept, ...(session.extraDepts || [])].filter(Boolean) as string[];
+    if (allDepts.length) {
+      orConditions.push({ dept: { in: allDepts } });
     }
     roleFilter = { OR: orConditions };
   }

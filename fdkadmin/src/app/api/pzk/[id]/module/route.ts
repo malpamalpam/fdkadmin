@@ -178,7 +178,7 @@ export async function PATCH(
   }
 
   const permKey = MODULE_PERM_KEY[moduleKey];
-  if (!canEditModule(session.dept, session.role, permKey)) {
+  if (!canEditModule(session.dept, session.role, permKey, session.extraDepts)) {
     return NextResponse.json({ error: "Forbidden — brak uprawnień do tego modułu" }, { status: 403 });
   }
 

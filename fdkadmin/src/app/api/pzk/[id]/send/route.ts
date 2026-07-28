@@ -25,11 +25,12 @@ export async function POST(
   if (!c) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Only ADMIN, SUPERVISOR, or ADMINISTRACJA/TUTLO employees can send
+  const allDepts = [session.dept, ...(session.extraDepts || [])].filter(Boolean);
   const canSend =
     session.role === "ADMIN" ||
     session.role === "SUPERVISOR" ||
-    session.dept === "ADMINISTRACJA" ||
-    session.dept === "TUTLO";
+    allDepts.includes("ADMINISTRACJA") ||
+    allDepts.includes("TUTLO");
   if (!canSend) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await request.json();

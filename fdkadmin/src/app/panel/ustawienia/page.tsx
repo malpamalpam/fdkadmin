@@ -5,7 +5,8 @@ import { getSortedDepartments } from "@/lib/constants";
 
 const DEPT_LABELS: Record<string, string> = {
   KADRY: "Kadry", ADMINISTRACJA: "Administracja", KONTAKT: "Kontakt", HR: "HR",
-  KSIEGOWOSC: "Księgowość", B2B: "B2B", OPLATY: "Opłaty", LEGALIZACJA: "Legalizacja", TUTLO: "Tutlo", INNY: "Inny",
+  KSIEGOWOSC: "Księgowość", B2B: "B2B", OPLATY: "Opłaty", LEGALIZACJA: "Legalizacja",
+  TUTLO: "Tutlo", TUTLO_OPLATY: "Tutlo – Opłaty", TUTLO_KSIEGOWOSC: "Tutlo – Księgowość", INNY: "Inny",
 };
 
 interface Setting {
@@ -18,7 +19,7 @@ interface Setting {
 
 interface UserRecord {
   id: string; login: string; fullName: string; email: string | null; teamsUpn: string | null;
-  dept: string | null; role: string; gender: string; position: string | null; active: boolean;
+  dept: string | null; extraDepts: string[]; role: string; gender: string; position: string | null; active: boolean;
 }
 
 interface DeptConfig { id: string; code: string; name: string; email: string | null; emails: string[]; }
@@ -54,7 +55,7 @@ export default function UstawieniaPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [showNewUser, setShowNewUser] = useState(false);
-  const [newUser, setNewUser] = useState({ login: "", fullName: "", password: "", email: "", teamsUpn: "", dept: "", role: "EMPLOYEE", gender: "K", position: "" });
+  const [newUser, setNewUser] = useState({ login: "", fullName: "", password: "", email: "", teamsUpn: "", dept: "", extraDepts: [] as string[], role: "EMPLOYEE", gender: "K", position: "" });
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editData, setEditData] = useState<Partial<UserRecord>>({});
   const [resetUserId, setResetUserId] = useState<string | null>(null);
@@ -100,7 +101,7 @@ export default function UstawieniaPage() {
     if (res.ok) {
       const created = await res.json();
       setUsers([...users, created].sort((a, b) => a.fullName.localeCompare(b.fullName, "pl")));
-      setNewUser({ login: "", fullName: "", password: "", email: "", teamsUpn: "", dept: "", role: "EMPLOYEE", gender: "K", position: "" });
+      setNewUser({ login: "", fullName: "", password: "", email: "", teamsUpn: "", dept: "", extraDepts: [], role: "EMPLOYEE", gender: "K", position: "" });
       setShowNewUser(false);
     } else { const data = await res.json(); alert(data.error || "Błąd"); }
   }
@@ -205,7 +206,8 @@ export default function UstawieniaPage() {
               <div><label className="text-xs text-gray-500">Hasło *</label><input type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} placeholder="Min. 6 znaków" className="w-full border rounded px-2 py-1.5 text-sm" /></div>
               <div><label className="text-xs text-gray-500">E-mail firmowy</label><input type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} placeholder="jan.kowalski@firmadlakazdego.pl" className="w-full border rounded px-2 py-1.5 text-sm" /></div>
               <div><label className="text-xs text-gray-500">Teams UPN (@wzmianki)</label><input type="text" value={newUser.teamsUpn} onChange={(e) => setNewUser({ ...newUser, teamsUpn: e.target.value })} placeholder="jan.kowalski@firmadlakazdego.pl" className="w-full border rounded px-2 py-1.5 text-sm" /></div>
-              <div><label className="text-xs text-gray-500">Dział</label><select value={newUser.dept} onChange={(e) => setNewUser({ ...newUser, dept: e.target.value })} className="w-full border rounded px-2 py-1.5 text-sm">{DEPARTMENTS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}</select></div>
+              <div><label className="text-xs text-gray-500">Dział główny</label><select value={newUser.dept} onChange={(e) => setNewUser({ ...newUser, dept: e.target.value })} className="w-full border rounded px-2 py-1.5 text-sm">{DEPARTMENTS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}</select></div>
+              <div><label className="text-xs text-gray-500">Dodatkowe działy</label><ExtraDeptsSelect value={newUser.extraDepts} onChange={(v) => setNewUser({ ...newUser, extraDepts: v })} /></div>
               <div><label className="text-xs text-gray-500">Rola</label><select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })} className="w-full border rounded px-2 py-1.5 text-sm">{ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}</select></div>
               <div><label className="text-xs text-gray-500">Płeć</label><select value={newUser.gender} onChange={(e) => setNewUser({ ...newUser, gender: e.target.value })} className="w-full border rounded px-2 py-1.5 text-sm"><option value="K">Kobieta</option><option value="M">Mężczyzna</option></select></div>
               <div className="sm:col-span-2"><label className="text-xs text-gray-500">Stanowisko</label><input type="text" value={newUser.position} onChange={(e) => setNewUser({ ...newUser, position: e.target.value })} placeholder="np. Specjalista ds. kadr" className="w-full border rounded px-2 py-1.5 text-sm" /></div>
@@ -226,7 +228,8 @@ export default function UstawieniaPage() {
                     <div><label className="text-xs text-gray-500">Imię i nazwisko</label><input type="text" value={editData.fullName ?? u.fullName} onChange={(e) => setEditData({ ...editData, fullName: e.target.value })} className="w-full border rounded px-2 py-1 text-sm" /></div>
                     <div><label className="text-xs text-gray-500">E-mail</label><input type="email" value={editData.email ?? u.email ?? ""} onChange={(e) => setEditData({ ...editData, email: e.target.value || null })} className="w-full border rounded px-2 py-1 text-sm" /></div>
                     <div><label className="text-xs text-gray-500">Teams UPN</label><input type="text" value={editData.teamsUpn ?? u.teamsUpn ?? ""} onChange={(e) => setEditData({ ...editData, teamsUpn: e.target.value || null })} className="w-full border rounded px-2 py-1 text-sm" /></div>
-                    <div><label className="text-xs text-gray-500">Dział</label><select value={editData.dept ?? u.dept ?? ""} onChange={(e) => setEditData({ ...editData, dept: e.target.value || null })} className="w-full border rounded px-2 py-1 text-sm">{DEPARTMENTS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}</select></div>
+                    <div><label className="text-xs text-gray-500">Dział główny</label><select value={editData.dept ?? u.dept ?? ""} onChange={(e) => setEditData({ ...editData, dept: e.target.value || null })} className="w-full border rounded px-2 py-1 text-sm">{DEPARTMENTS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}</select></div>
+                    <div><label className="text-xs text-gray-500">Dodatkowe działy</label><ExtraDeptsSelect value={(editData as Record<string, unknown>).extraDepts as string[] ?? u.extraDepts ?? []} onChange={(v) => setEditData({ ...editData, extraDepts: v } as Partial<UserRecord>)} /></div>
                     <div><label className="text-xs text-gray-500">Rola</label><select value={editData.role ?? u.role} onChange={(e) => setEditData({ ...editData, role: e.target.value })} className="w-full border rounded px-2 py-1 text-sm">{ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}</select></div>
                     <div><label className="text-xs text-gray-500">Płeć</label><select value={editData.gender ?? u.gender} onChange={(e) => setEditData({ ...editData, gender: e.target.value })} className="w-full border rounded px-2 py-1 text-sm"><option value="K">Kobieta</option><option value="M">Mężczyzna</option></select></div>
                     <div className="sm:col-span-3"><label className="text-xs text-gray-500">Stanowisko</label><input type="text" value={editData.position ?? u.position ?? ""} onChange={(e) => setEditData({ ...editData, position: e.target.value })} className="w-full border rounded px-2 py-1 text-sm" /></div>
@@ -243,6 +246,7 @@ export default function UstawieniaPage() {
                     <span className="text-xs text-gray-500 ml-2">@{u.login}</span>
                     <span className={`text-xs ml-2 px-1.5 py-0.5 rounded ${u.role === "ADMIN" ? "bg-red-100 text-red-700" : u.role === "SUPERVISOR" ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-600"}`}>{u.role}</span>
                     {u.dept && <span className="text-xs text-gray-500 ml-2">{DEPT_LABELS[u.dept] || u.dept}</span>}
+                    {u.extraDepts?.length > 0 && <span className="text-xs text-gray-400 ml-1">+{u.extraDepts.map(d => DEPT_LABELS[d] || d).join(", ")}</span>}
                     {u.email && <span className="text-xs text-gray-400 ml-2">{u.email}</span>}
                   </div>
                   <div className="flex gap-2">
@@ -269,6 +273,27 @@ export default function UstawieniaPage() {
         <h2 className="font-semibold text-lg">Eksport danych</h2>
         <button onClick={() => window.open("/api/cases/export", "_blank")} className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-900">📥 Eksport CSV</button>
       </section>
+    </div>
+  );
+}
+
+function ExtraDeptsSelect({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1 min-h-[32px] border rounded px-2 py-1">
+      {SORTED_DEPTS.map((d) => (
+        <label key={d.value} className="flex items-center gap-1 text-xs whitespace-nowrap cursor-pointer">
+          <input
+            type="checkbox"
+            checked={value.includes(d.value)}
+            onChange={(e) => {
+              if (e.target.checked) onChange([...value, d.value]);
+              else onChange(value.filter((v) => v !== d.value));
+            }}
+            className="rounded border-gray-300"
+          />
+          {d.label}
+        </label>
+      ))}
     </div>
   );
 }

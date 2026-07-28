@@ -32,27 +32,23 @@ async function getDeptEmails(deptCode: string): Promise<string[]> {
 
 // ─── Routing table (new numbering: modules 1–9) ─────────────────────────────
 //
-// PZK (non-Tutlo):
-//   mod1+mod2 (1+2)  → administracja
-//   mod3 (3)         → KADRY | HR | HR_ENG (by clientType)
-//   mod4 (4)         → k.erbetowska (KADRY dept)
-//   mod5 (5)         → ksiegowosc
-//   mod6 (6)         → legalizacja (only foreigners)
-//   mod7 (7)         → m.niewiarowska (OPLATY dept)
-//   mod8A (8A)       → m.niewiarowska (OPLATY dept)
-//   mod8B (8B)       → m.niewiarowska (OPLATY dept)
-//   mod9 (9)         → p.wrobel (ADMINISTRACJA dept)
+// PZK (non-Tutlo):                          PZK Tutlo:
+//   mod1+mod2 (1+2)  → ADMINISTRACJA          mod1+mod2 → p.wrobel (individual)
+//   mod3 (3)         → KADRY|HR|HR_ENG         mod3      → TUTLO
+//   mod4 (4)         → k.erbetowska (indiv.)   mod4      → k.erbetowska (indiv.)
+//   mod5 (5)         → KSIEGOWOSC              mod5      → KSIEGOWOSC
+//   mod6 (6)         → LEGALIZACJA (foreign)   mod6      → LEGALIZACJA (foreign)
+//   mod7 (7)         → OPLATY (m.niewiarowska)  mod7     → TUTLO_OPLATY (payments)
+//   mod8A (8A)       → OPLATY                  mod8A     → OPLATY
+//   mod8B (8B)       → OPLATY                  mod8B     → OPLATY
+//   mod9 (9)         → p.wrobel (individual)   mod9      → p.wrobel (individual)
 //
-// PZK Tutlo:
-//   mod1+mod2 (1+2)  → p.wrobel (ADMINISTRACJA)
-//   mod3 (3)         → tutlo
-//   mod4 (4)         → k.erbetowska (KADRY)
-//   mod5 (5)         → ksiegowosc
-//   mod6 (6)         → legalizacja (only TUTLO_OBCOKRAJOWIEC)
-//   mod7 (7)         → payments (OPLATY dept)
-//   mod8A (8A)       → m.niewiarowska (OPLATY)
-//   mod8B (8B)       → m.niewiarowska (OPLATY)
-//   mod9 (9)         → p.wrobel (ADMINISTRACJA)
+// Individual emails — organisational @firmadlakazdego.pl mailboxes.
+// Update here if responsibilities change.
+const ROUTE_EMAIL = {
+  ubezpieczenia: "k.erbetowska@firmadlakazdego.pl",  // mod4 — both PZK and Tutlo
+  inne: "p.wrobel@firmadlakazdego.pl",                // mod9 + Tutlo mod1+2
+} as const;
 
 export interface ModuleRecipient {
   moduleLabel: string;
@@ -76,7 +72,7 @@ export async function resolvePzkRecipients(opts: {
 }): Promise<ModuleRecipient[]> {
   const { panel, clientType } = opts;
 
-  const [adminEmails, kadryEmails, hrEmails, hrEngEmails, ksiegEmails, legalEmails, oplatyEmails, tutloEmails] =
+  const [adminEmails, kadryEmails, hrEmails, hrEngEmails, ksiegEmails, legalEmails, oplatyEmails, tutloEmails, tutloOplatyEmails] =
     await Promise.all([
       getDeptEmails("ADMINISTRACJA"),
       getDeptEmails("KADRY"),
@@ -86,19 +82,24 @@ export async function resolvePzkRecipients(opts: {
       getDeptEmails("LEGALIZACJA"),
       getDeptEmails("OPLATY"),
       getDeptEmails("TUTLO"),
+      getDeptEmails("TUTLO_OPLATY"),
     ]);
 
   const recipients: ModuleRecipient[] = [];
 
   // Module 1+2: Beneficjent + Administration
+  // PZK → administracja@ (group mailbox)
+  // PZK_TUTLO → p.wrobel@ (individual, not whole ADMINISTRACJA)
   if (!opts.mod1Closed || !opts.mod2Closed) {
-    const emails = panel === "PZK" ? adminEmails : adminEmails; // p.wrobel is in ADMINISTRACJA
+    const emails = panel === "PZK" ? adminEmails : [ROUTE_EMAIL.inne];
     if (emails.length) {
       recipients.push({ moduleKey: "mod1", moduleLabel: "Beneficjent + Administracja", emails });
     }
   }
 
   // Module 3: Kadry – sprawy kadrowe
+  // PZK → depends on clientType: KADRY (kadry@), HR (hr@), HR_ENG (hr.eng@)
+  // PZK_TUTLO → TUTLO (tutlo@)
   if (!opts.mod3Closed) {
     let emails: string[] = [];
     if (panel === "PZK") {
@@ -106,7 +107,6 @@ export async function resolvePzkRecipients(opts: {
       else if (clientType === "OBCOKRAJOWIEC_HR") emails = hrEmails;
       else if (clientType === "OBCOKRAJOWIEC_HR_ENG") emails = hrEngEmails.length ? hrEngEmails : hrEmails;
     } else {
-      // PZK_TUTLO: mod3 → tutlo
       emails = tutloEmails;
     }
     if (emails.length) {
@@ -114,14 +114,12 @@ export async function resolvePzkRecipients(opts: {
     }
   }
 
-  // Module 4: Kadry – ubezpieczenia → k.erbetowska (KADRY dept)
+  // Module 4: Kadry – ubezpieczenia → k.erbetowska@ (individual, NOT whole KADRY dept)
   if (!opts.mod3BClosed) {
-    if (kadryEmails.length) {
-      recipients.push({ moduleKey: "mod4", moduleLabel: "Kadry – ubezpieczenia", emails: kadryEmails });
-    }
+    recipients.push({ moduleKey: "mod4", moduleLabel: "Kadry – ubezpieczenia", emails: [ROUTE_EMAIL.ubezpieczenia] });
   }
 
-  // Module 5: Księgowość
+  // Module 5: Księgowość → KSIEGOWOSC dept
   if (!opts.mod4Closed) {
     if (ksiegEmails.length) {
       recipients.push({ moduleKey: "mod5", moduleLabel: "Księgowość", emails: ksiegEmails });
@@ -139,32 +137,33 @@ export async function resolvePzkRecipients(opts: {
     }
   }
 
-  // Module 7: Płatności → m.niewiarowska (OPLATY)
+  // Module 7: Płatności
+  // PZK → OPLATY (m.niewiarowska@)
+  // PZK_TUTLO → TUTLO_OPLATY (payments@)
   if (!opts.mod6Closed) {
-    if (oplatyEmails.length) {
-      recipients.push({ moduleKey: "mod7", moduleLabel: "Płatności", emails: oplatyEmails });
+    const emails = panel === "PZK" ? oplatyEmails : tutloOplatyEmails;
+    if (emails.length) {
+      recipients.push({ moduleKey: "mod7", moduleLabel: "Płatności", emails });
     }
   }
 
-  // Module 8A: Umowy B2B → m.niewiarowska (OPLATY)
+  // Module 8A: Umowy B2B → OPLATY (m.niewiarowska@) for both panels
   if (!opts.mod7AClosed) {
     if (oplatyEmails.length) {
       recipients.push({ moduleKey: "mod8A", moduleLabel: "Umowy B2B", emails: oplatyEmails });
     }
   }
 
-  // Module 8B: Umowy najmu → m.niewiarowska (OPLATY)
+  // Module 8B: Umowy najmu → OPLATY (m.niewiarowska@) for both panels
   if (!opts.mod7BClosed) {
     if (oplatyEmails.length) {
       recipients.push({ moduleKey: "mod8B", moduleLabel: "Umowy najmu", emails: oplatyEmails });
     }
   }
 
-  // Module 9: Inne → p.wrobel (ADMINISTRACJA)
+  // Module 9: Inne → p.wrobel@ (individual, NOT whole ADMINISTRACJA)
   if (!opts.mod8Closed) {
-    if (adminEmails.length) {
-      recipients.push({ moduleKey: "mod9", moduleLabel: "Inne", emails: adminEmails });
-    }
+    recipients.push({ moduleKey: "mod9", moduleLabel: "Inne", emails: [ROUTE_EMAIL.inne] });
   }
 
   return recipients;

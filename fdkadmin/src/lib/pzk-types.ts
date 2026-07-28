@@ -351,20 +351,26 @@ export interface PzkCase {
 export const MODULE_DEPT_MAP: Record<string, string[]> = {
   mod1: ["ADMINISTRACJA", "TUTLO"],
   mod2: ["ADMINISTRACJA", "TUTLO"],
-  mod3: ["KADRY", "HR", "HR_ENG"],     // Kadry sprawy — accessible by all kadry/HR depts
-  mod3b: ["KADRY", "HR", "HR_ENG"],    // Kadry ubezpieczenia — same depts (shared JSON blob)
-  mod4: ["KSIEGOWOSC"],                // UI module 5: Księgowość
-  mod5: ["LEGALIZACJA"],               // UI module 6: Legalizacja
-  mod6: ["OPLATY"],                    // UI module 7: Płatności
-  mod7: ["B2B"],                       // UI module 8: Umowy — B2B dept edits, OPLATY gets notifications
-  mod8: ["ADMINISTRACJA", "TUTLO"],    // UI module 9: Inne
+  mod3: ["KADRY", "HR", "HR_ENG", "TUTLO"],  // Kadry sprawy — accessible by all kadry/HR + Tutlo
+  mod3b: ["KADRY", "HR", "HR_ENG", "TUTLO"], // Kadry ubezpieczenia — same depts (shared JSON blob)
+  mod4: ["KSIEGOWOSC", "TUTLO_KSIEGOWOSC"],  // UI module 5: Księgowość
+  mod5: ["LEGALIZACJA"],                      // UI module 6: Legalizacja
+  mod6: ["OPLATY", "TUTLO_OPLATY"],           // UI module 7: Płatności
+  mod7: ["B2B"],                              // UI module 8: Umowy — B2B dept edits, OPLATY gets notifications
+  mod8: ["ADMINISTRACJA", "TUTLO"],           // UI module 9: Inne
 };
 
-export function canEditModule(userDept: string | null, userRole: string, moduleKey: string): boolean {
+export function canEditModule(
+  userDept: string | null,
+  userRole: string,
+  moduleKey: string,
+  extraDepts?: string[],
+): boolean {
   if (userRole === "ADMIN" || userRole === "SUPERVISOR") return true;
-  if (!userDept) return false;
   const allowed = MODULE_DEPT_MAP[moduleKey] || [];
-  return allowed.includes(userDept);
+  if (userDept && allowed.includes(userDept)) return true;
+  if (extraDepts?.some((d) => allowed.includes(d))) return true;
+  return false;
 }
 
 // ─── Closeable unit counting ────────────────────────────────────────────────
@@ -403,7 +409,8 @@ export function closedUnitCount(c: PzkCase): number {
 export function collectBraki(
   c: PzkCase,
   userDept: string | null,
-  userRole: string
+  userRole: string,
+  extraDepts?: string[],
 ): string[] {
   const braki: string[] = [];
   const isAdminLike = userRole === "ADMIN" || userRole === "SUPERVISOR";
@@ -425,7 +432,7 @@ export function collectBraki(
   }
 
   // mod2Admin (UI module 2)
-  if (isAdminLike || canEditModule(userDept, userRole, "mod2")) {
+  if (isAdminLike || canEditModule(userDept, userRole, "mod2", extraDepts)) {
     const m = (c.mod2Admin || {}) as Mod2Admin;
     addYR("Wypowiedzenie", m.wypowiedzenie);
     addYR("PESEL", m.pesel);
@@ -442,7 +449,7 @@ export function collectBraki(
   }
 
   // mod3Kadry — UI modules 3 + 4
-  if (isAdminLike || canEditModule(userDept, userRole, "mod3")) {
+  if (isAdminLike || canEditModule(userDept, userRole, "mod3", extraDepts)) {
     const m = (c.mod3Kadry || {}) as Mod3Kadry;
     // Module 3: sprawy kadrowe
     if (m.brakiKadryDok && m.brakiKadryDok !== "Komplet")
@@ -459,7 +466,7 @@ export function collectBraki(
   }
 
   // mod4Ksieg (UI module 5)
-  if (isAdminLike || canEditModule(userDept, userRole, "mod4")) {
+  if (isAdminLike || canEditModule(userDept, userRole, "mod4", extraDepts)) {
     const m = (c.mod4Ksieg || {}) as Mod4Ksieg;
     if (m.brakiKsiegDok && m.brakiKsiegDok !== "Komplet")
       braki.push(`Braki księgowość – dokumenty: ${m.brakiKsiegDok}`);
@@ -468,7 +475,7 @@ export function collectBraki(
   }
 
   // mod5Legal (UI module 6) — skip if legalNieDotyczy
-  if (isAdminLike || canEditModule(userDept, userRole, "mod5")) {
+  if (isAdminLike || canEditModule(userDept, userRole, "mod5", extraDepts)) {
     const m = (c.mod5Legal || {}) as Mod5Legal;
     if (!m.legalNieDotyczy) {
       if (m.brakiLegalDok && m.brakiLegalDok !== "Komplet")
@@ -479,7 +486,7 @@ export function collectBraki(
   }
 
   // mod6Platnosci (UI module 7)
-  if (isAdminLike || canEditModule(userDept, userRole, "mod6")) {
+  if (isAdminLike || canEditModule(userDept, userRole, "mod6", extraDepts)) {
     const m = (c.mod6Platnosci || {}) as Mod6Platnosci;
     addAmount("Opłaty za współpracę", m.oplatyWspolpraca, m.oplatyWspolpracaStatus);
     addYR("Status opłat za współpracę", m.oplatyWspolpracaStatus);
@@ -495,7 +502,7 @@ export function collectBraki(
   }
 
   // mod7Umowy (UI module 8)
-  if (isAdminLike || canEditModule(userDept, userRole, "mod7")) {
+  if (isAdminLike || canEditModule(userDept, userRole, "mod7", extraDepts)) {
     const m = (c.mod7Umowy || {}) as Mod7Umowy;
     if (m.b2bEntries?.length) {
       m.b2bEntries.forEach((e, i) => { if (e.kontrahent !== "Nie dotyczy") addYR(`Wypowiedzenie B2B #${i+1}`, e.wypowiedzenie); });
@@ -506,7 +513,7 @@ export function collectBraki(
   }
 
   // mod8Inne (UI module 9)
-  if (isAdminLike || canEditModule(userDept, userRole, "mod8")) {
+  if (isAdminLike || canEditModule(userDept, userRole, "mod8", extraDepts)) {
     const m = (c.mod8Inne || {}) as Mod8Inne;
     if (m.bramkiEntries?.length) {
       m.bramkiEntries.forEach((e, i) => { if (e.rodzaj !== "Nie dotyczy") addYR(`Status bramki #${i+1}`, e.status); });

@@ -17,13 +17,18 @@ export async function verifyAuth(request: NextRequest): Promise<JwtPayload | nul
   return verifyToken(token.value);
 }
 
+function userHasDept(user: JwtPayload, dept: string): boolean {
+  if (user.dept === dept) return true;
+  if (user.extraDepts?.includes(dept)) return true;
+  return false;
+}
+
 export function canAccessCase(
   user: JwtPayload,
   caseData: { dept: string; takerId?: string | null; ownerId?: string | null }
 ): boolean {
   if (user.role === "ADMIN" || user.role === "SUPERVISOR") return true;
-  // EMPLOYEE: own dept, or cases they took/own
-  if (user.dept && caseData.dept === user.dept) return true;
+  if (userHasDept(user, caseData.dept)) return true;
   if (caseData.takerId === user.userId) return true;
   if (caseData.ownerId === user.userId) return true;
   return false;
@@ -36,7 +41,7 @@ export function canChangeOwner(
   if (user.role === "ADMIN" || user.role === "SUPERVISOR") return true;
   if (caseData.takerId === user.userId) return true;
   if (caseData.ownerId === user.userId) return true;
-  if (user.dept && caseData.dept === user.dept) return true;
+  if (userHasDept(user, caseData.dept)) return true;
   return false;
 }
 
@@ -46,7 +51,7 @@ export function canSetDeadline(
 ): boolean {
   if (user.role === "ADMIN") return true;
   if (caseData.ownerId === user.userId) return true;
-  if (user.dept && caseData.dept === user.dept) return true;
+  if (userHasDept(user, caseData.dept)) return true;
   return false;
 }
 

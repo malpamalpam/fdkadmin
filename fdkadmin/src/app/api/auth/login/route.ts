@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
     fullName: user.fullName,
     role: user.role,
     dept: user.dept,
+    extraDepts: (user as unknown as { extraDepts?: string[] }).extraDepts ?? [],
     gender: user.gender,
   });
 

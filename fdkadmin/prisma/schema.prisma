@@ -24,6 +24,8 @@ enum Department {
   OPLATY
   LEGALIZACJA
   TUTLO
+  TUTLO_OPLATY
+  TUTLO_KSIEGOWOSC
   INNY
 }
 
@@ -85,6 +87,7 @@ model User {
   gender         Gender     @default(K)
   position       String?
   signatureBlock String?
+  extraDepts     Department[] @default([])
   active         Boolean    @default(true)
   createdAt      DateTime   @default(now())
 

@@ -10,6 +10,7 @@ export interface JwtPayload {
   fullName: string;
   role: "ADMIN" | "SUPERVISOR" | "EMPLOYEE";
   dept: string | null;
+  extraDepts: string[];
   gender: "K" | "M";
 }
 
@@ -24,7 +25,10 @@ export async function signToken(payload: JwtPayload): Promise<string> {
 export async function verifyToken(token: string): Promise<JwtPayload | null> {
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload as unknown as JwtPayload;
+    const p = payload as unknown as JwtPayload;
+    // Backward compat: old tokens may not have extraDepts
+    if (!p.extraDepts) p.extraDepts = [];
+    return p;
   } catch {
     return null;
   }
