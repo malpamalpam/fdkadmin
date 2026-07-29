@@ -228,13 +228,17 @@ export interface Mod7Umowy {
 // ─── Module 9: Inne (DB: mod8Inne) ───────────────────────────────────────────
 
 export interface BramkaEntry {
+  nazwa?: string;
   rodzaj?: "PayU" | "Stripe" | "inne" | "Nie dotyczy";
   status?: "Aktywne" | "Zamknięte" | "Potwierdzenie - dostarczone" | "Potwierdzenie - brak";
+  komentarz?: string;
 }
 
 export interface DomenaEntry {
+  nazwa?: string;
   rodzaj?: "Cesja" | "Nie dotyczy";
   status?: "Do uzupełnienia" | "Podpisana i wysłana" | "Niepotrzebne";
+  komentarz?: string;
 }
 
 export interface Mod8Inne {
