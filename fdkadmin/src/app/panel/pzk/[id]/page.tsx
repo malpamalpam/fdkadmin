@@ -1092,10 +1092,12 @@ export default function PzkCasePage() {
                 <span className="text-xs font-semibold text-gray-400">B2B #{i + 1}</span>
                 {canB2B && <button type="button" onClick={() => setMod7(d => ({ ...d, b2bEntries: (d.b2bEntries || []).filter((_, j) => j !== i) }))} className="text-xs text-red-400 hover:text-red-600">Usuń</button>}
               </div>
+              <TextField label="Nazwa" value={entry.nazwa} onChange={(v) => setMod7(d => { const e = [...(d.b2bEntries || [])]; e[i] = { ...e[i], nazwa: v }; return { ...d, b2bEntries: e }; })} disabled={!canB2B} />
               <TextField label="Kontrahent" value={entry.kontrahent} onChange={(v) => setMod7(d => { const e = [...(d.b2bEntries || [])]; e[i] = { ...e[i], kontrahent: v }; return { ...d, b2bEntries: e }; })} disabled={!canB2B} />
               <TextField label="Data rozpoczęcia" value={entry.dataRozpoczecia} onChange={(v) => setMod7(d => { const e = [...(d.b2bEntries || [])]; e[i] = { ...e[i], dataRozpoczecia: v }; return { ...d, b2bEntries: e }; })} disabled={!canB2B} type="date" />
               <DropField label="Wypowiedzenie" value={entry.wypowiedzenie} options={B2B_WYP} onChange={(v) => setMod7(d => { const e = [...(d.b2bEntries || [])]; e[i] = { ...e[i], wypowiedzenie: v as never }; return { ...d, b2bEntries: e }; })} disabled={!canB2B} />
               <TextField label="Data wypowiedzenia" value={entry.dataWypowiedzenia} onChange={(v) => setMod7(d => { const e = [...(d.b2bEntries || [])]; e[i] = { ...e[i], dataWypowiedzenia: v }; return { ...d, b2bEntries: e }; })} disabled={!canB2B} type="date" />
+              <CommentField value={entry.komentarz} onChange={(v) => setMod7(d => { const e = [...(d.b2bEntries || [])]; e[i] = { ...e[i], komentarz: v }; return { ...d, b2bEntries: e }; })} disabled={!canB2B} />
             </div>
           ))}
           {(mod7.b2bEntries || []).length === 0 && <p className="text-xs text-gray-400 mb-2">Brak wpisów</p>}
@@ -1117,10 +1119,12 @@ export default function PzkCasePage() {
                 <span className="text-xs font-semibold text-gray-400">Najem #{i + 1}</span>
                 {canB2B && <button type="button" onClick={() => setMod7(d => ({ ...d, najmEntries: (d.najmEntries || []).filter((_, j) => j !== i) }))} className="text-xs text-red-400 hover:text-red-600">Usuń</button>}
               </div>
+              <TextField label="Nazwa" value={entry.nazwa} onChange={(v) => setMod7(d => { const e = [...(d.najmEntries || [])]; e[i] = { ...e[i], nazwa: v }; return { ...d, najmEntries: e }; })} disabled={!canB2B} />
               <TextField label="Umowa najmu" value={entry.umowa} onChange={(v) => setMod7(d => { const e = [...(d.najmEntries || [])]; e[i] = { ...e[i], umowa: v }; return { ...d, najmEntries: e }; })} disabled={!canB2B} />
               <TextField label="Data rozpoczęcia" value={entry.dataRozpoczecia} onChange={(v) => setMod7(d => { const e = [...(d.najmEntries || [])]; e[i] = { ...e[i], dataRozpoczecia: v }; return { ...d, najmEntries: e }; })} disabled={!canB2B} type="date" />
               <DropField label="Wypowiedzenie" value={entry.wypowiedzenie} options={B2B_WYP} onChange={(v) => setMod7(d => { const e = [...(d.najmEntries || [])]; e[i] = { ...e[i], wypowiedzenie: v as never }; return { ...d, najmEntries: e }; })} disabled={!canB2B} />
               <TextField label="Data wypowiedzenia" value={entry.dataWypowiedzenia} onChange={(v) => setMod7(d => { const e = [...(d.najmEntries || [])]; e[i] = { ...e[i], dataWypowiedzenia: v }; return { ...d, najmEntries: e }; })} disabled={!canB2B} type="date" />
+              <CommentField value={entry.komentarz} onChange={(v) => setMod7(d => { const e = [...(d.najmEntries || [])]; e[i] = { ...e[i], komentarz: v }; return { ...d, najmEntries: e }; })} disabled={!canB2B} />
             </div>
           ))}
           {(mod7.najmEntries || []).length === 0 && <p className="text-xs text-gray-400 mb-2">Brak wpisów</p>}

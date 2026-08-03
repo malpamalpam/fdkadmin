@@ -196,17 +196,21 @@ export interface Mod6Platnosci {
 // ─── Module 8: Umowy (DB: mod7Umowy) ─────────────────────────────────────────
 
 export interface B2BEntry {
+  nazwa?: string;
   kontrahent?: string;
   dataRozpoczecia?: string;
   wypowiedzenie?: "Wysłane" | "Do wysłania" | "Niepotrzebne";
   dataWypowiedzenia?: string;
+  komentarz?: string;
 }
 
 export interface NajemEntry {
+  nazwa?: string;
   umowa?: string;
   dataRozpoczecia?: string;
   wypowiedzenie?: "Wysłane" | "Do wysłania" | "Niepotrzebne";
   dataWypowiedzenia?: string;
+  komentarz?: string;
 }
 
 export interface Mod7Umowy {
