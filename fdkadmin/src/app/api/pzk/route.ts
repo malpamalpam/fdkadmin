@@ -78,7 +78,11 @@ export async function GET(request: NextRequest) {
 
     const cases = await prisma.pzkCase.findMany({
       where,
-      orderBy: { cooperationEndsAt: { sort: "asc", nulls: "last" } },
+      orderBy: [
+        { cooperationEndsAt: { sort: "asc", nulls: "last" } },
+        { lastName: "asc" },
+        { firstNames: "asc" },
+      ],
     });
 
     return NextResponse.json(cases);

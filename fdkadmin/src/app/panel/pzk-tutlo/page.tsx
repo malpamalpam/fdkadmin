@@ -35,7 +35,18 @@ export default function PzkTutloPage() {
       if (search) params.set("q", search);
       if (statusFilter.size > 0) params.set("status", Array.from(statusFilter).join(","));
       const res = await fetch(`/api/pzk?${params}`);
-      if (res.ok) setCases(await res.json());
+      if (res.ok) {
+        const data: PzkCase[] = await res.json();
+        data.sort((a, b) => {
+          const da = a.cooperationEndsAt ? new Date(a.cooperationEndsAt).getTime() : Infinity;
+          const db = b.cooperationEndsAt ? new Date(b.cooperationEndsAt).getTime() : Infinity;
+          if (da !== db) return da - db;
+          const ln = (a.lastName ?? "").localeCompare(b.lastName ?? "", "pl");
+          if (ln !== 0) return ln;
+          return (a.firstNames ?? "").localeCompare(b.firstNames ?? "", "pl");
+        });
+        setCases(data);
+      }
     } finally {
       setLoading(false);
     }
