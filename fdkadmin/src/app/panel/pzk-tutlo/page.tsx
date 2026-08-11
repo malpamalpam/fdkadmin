@@ -1,23 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useCallback } from "react";
-import { PZK_CLIENT_TYPE_LABELS, PzkClientType, PzkCase, countFieldColors, closedUnitCount, TOTAL_CLOSE_UNITS } from "@/lib/pzk-types";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { PZK_CLIENT_TYPE_LABELS, PzkCase, countFieldColors, closedUnitCount, TOTAL_CLOSE_UNITS } from "@/lib/pzk-types";
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit", year: "numeric" });
-}
-
-function getMonths(cases: PzkCase[]): string[] {
-  const set = new Set<string>();
-  for (const c of cases) {
-    if (c.cooperationEndsAt) {
-      const d = new Date(c.cooperationEndsAt);
-      set.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-    }
-  }
-  return Array.from(set).sort().reverse();
 }
 
 export default function PzkTutloPage() {
@@ -25,7 +14,18 @@ export default function PzkTutloPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [monthFilter, setMonthFilter] = useState("");
-  const [showWithdrawn, setShowWithdrawn] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<Set<string>>(() => new Set(["open"]));
+  const [allMonths, setAllMonths] = useState<string[]>([]);
+  const monthsLoaded = useRef(false);
+
+  // Load available months once (from all cases, unfiltered)
+  useEffect(() => {
+    if (monthsLoaded.current) return;
+    monthsLoaded.current = true;
+    fetch("/api/pzk?panel=PZK_TUTLO&months_only=true")
+      .then((r) => r.ok ? r.json() : [])
+      .then(setAllMonths);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -33,19 +33,27 @@ export default function PzkTutloPage() {
       const params = new URLSearchParams({ panel: "PZK_TUTLO" });
       if (monthFilter) params.set("month", monthFilter);
       if (search) params.set("q", search);
-      if (showWithdrawn) params.set("withdrawn", "true");
+      if (statusFilter.size > 0) params.set("status", Array.from(statusFilter).join(","));
       const res = await fetch(`/api/pzk?${params}`);
       if (res.ok) setCases(await res.json());
     } finally {
       setLoading(false);
     }
-  }, [monthFilter, search, showWithdrawn]);
+  }, [monthFilter, search, statusFilter]);
 
   useEffect(() => { load(); }, [load]);
 
-  const months = getMonths(cases);
   const now = new Date();
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  function toggleStatus(key: string) {
+    setStatusFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   return (
     <div>
@@ -76,22 +84,31 @@ export default function PzkTutloPage() {
           onChange={(e) => setMonthFilter(e.target.value)}
         >
           <option value="">Wszystkie miesiące</option>
-          {months.map((m) => (
+          {allMonths.map((m) => (
             <option key={m} value={m}>
               {new Date(m + "-01").toLocaleDateString("pl-PL", { month: "long", year: "numeric" })}
               {m === thisMonth ? " (bieżący)" : ""}
             </option>
           ))}
         </select>
-        <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={showWithdrawn}
-            onChange={(e) => setShowWithdrawn(e.target.checked)}
-            className="rounded"
-          />
-          Pokaż rezygnacje
-        </label>
+        <div className="flex items-center gap-1 text-sm">
+          <span className="text-gray-500 mr-1">Status:</span>
+          {([
+            ["open", "Otwarte", "bg-blue-100 text-blue-700 border-blue-300"],
+            ["closed", "Zamknięte", "bg-gray-100 text-gray-700 border-gray-300"],
+            ["withdrawn", "Rezygnacje", "bg-orange-100 text-orange-700 border-orange-300"],
+          ] as const).map(([key, label, colors]) => (
+            <button
+              key={key}
+              onClick={() => toggleStatus(key)}
+              className={`px-2.5 py-1 rounded-full border text-xs font-medium transition-colors ${
+                statusFilter.has(key) ? colors : "bg-white text-gray-400 border-gray-200"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading ? (

@@ -13,11 +13,49 @@ export async function GET(request: NextRequest) {
     const month = url.searchParams.get("month"); // "YYYY-MM"
     const search = url.searchParams.get("q");
 
-    const showWithdrawn = url.searchParams.get("withdrawn") === "true";
+    // Lightweight endpoint: return only available months for a panel
+    if (url.searchParams.get("months_only") === "true") {
+      const rows = await prisma.pzkCase.findMany({
+        where: panel ? { panel } : {},
+        select: { cooperationEndsAt: true },
+      });
+      const months = new Set<string>();
+      for (const r of rows) {
+        if (r.cooperationEndsAt) {
+          const d = new Date(r.cooperationEndsAt);
+          months.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+        }
+      }
+      return NextResponse.json(Array.from(months).sort().reverse());
+    }
+
+    // Status filter: comma-separated list of open,closed,withdrawn
+    const statusParam = url.searchParams.get("status"); // e.g. "open", "open,withdrawn"
 
     const where: Record<string, unknown> = {};
     if (panel) where.panel = panel;
-    if (!showWithdrawn) where.withdrawnFromNotice = false;
+
+    // Collect AND conditions for combining status + search filters
+    const andConds: Record<string, unknown>[] = [];
+
+    if (statusParam) {
+      const statuses = statusParam.split(",");
+      const hasOpen = statuses.includes("open");
+      const hasClosed = statuses.includes("closed");
+      const hasWithdrawn = statuses.includes("withdrawn");
+
+      if (!(hasOpen && hasClosed && hasWithdrawn)) {
+        const orConds: Record<string, unknown>[] = [];
+        if (hasOpen) orConds.push({ withdrawnFromNotice: false, caseClosed: false });
+        if (hasClosed) orConds.push({ caseClosed: true });
+        if (hasWithdrawn) orConds.push({ withdrawnFromNotice: true });
+        if (orConds.length > 0) {
+          andConds.push({ OR: orConds });
+        } else {
+          return NextResponse.json([]);
+        }
+      }
+    }
 
     if (month) {
       const [year, mon] = month.split("-").map(Number);
@@ -27,12 +65,16 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      where.OR = [
-        { lastName: { contains: search, mode: "insensitive" } },
-        { firstNames: { contains: search, mode: "insensitive" } },
-        { benefEmail: { contains: search, mode: "insensitive" } },
-      ];
+      andConds.push({
+        OR: [
+          { lastName: { contains: search, mode: "insensitive" } },
+          { firstNames: { contains: search, mode: "insensitive" } },
+          { benefEmail: { contains: search, mode: "insensitive" } },
+        ],
+      });
     }
+
+    if (andConds.length > 0) where.AND = andConds;
 
     const cases = await prisma.pzkCase.findMany({
       where,
