@@ -614,7 +614,9 @@ export default function PzkCasePage() {
   const canLegal = canEditModule(uDept, uRole, "mod5", uExtra);
   const canOplaty = canEditModule(uDept, uRole, "mod6", uExtra);
   const canB2B = canEditModule(uDept, uRole, "mod7", uExtra);
-  const canMod8 = canEditModule(uDept, uRole, "mod8", uExtra);
+  const canMod8A = canEditModule(uDept, uRole, "mod8A", uExtra); // 9A Bramki płatności
+  const canMod8B = canEditModule(uDept, uRole, "mod8B", uExtra); // 9B Domena/Hosting
+  const canMod8 = canMod8A || canMod8B;
 
   const panelPath = c.panel === "PZK_TUTLO" ? "/panel/pzk-tutlo" : "/panel/pzk";
 
@@ -1142,37 +1144,37 @@ export default function PzkCasePage() {
           onSave={() => saveModule("mod8Inne", mod8)}
           saving={savingMod === "mod8Inne"}
         >
-          <SubModuleHeader title="9A — Bramki płatności" closed={c.mod8AClosed} canEdit={canMod8} onToggle={() => toggleModuleClosed("mod8AClosed", c.mod8AClosed)} />
+          <SubModuleHeader title="9A — Bramki płatności" closed={c.mod8AClosed} canEdit={canMod8A} onToggle={() => toggleModuleClosed("mod8AClosed", c.mod8AClosed)} />
           {(mod8.bramkiEntries || []).map((entry, i) => (
             <div key={i} className="mb-2 pb-2 border-b border-gray-100 last:border-0">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-gray-400">Bramka #{i + 1}</span>
-                {canMod8 && <button type="button" onClick={() => setMod8(d => ({ ...d, bramkiEntries: (d.bramkiEntries || []).filter((_, j) => j !== i) }))} className="text-xs text-red-400 hover:text-red-600">Usuń</button>}
+                {canMod8A && <button type="button" onClick={() => setMod8(d => ({ ...d, bramkiEntries: (d.bramkiEntries || []).filter((_, j) => j !== i) }))} className="text-xs text-red-400 hover:text-red-600">Usuń</button>}
               </div>
-              <TextField label="Nazwa" value={entry.nazwa} onChange={(v) => setMod8(d => { const e = [...(d.bramkiEntries || [])]; e[i] = { ...e[i], nazwa: v }; return { ...d, bramkiEntries: e }; })} disabled={!canMod8} />
-              <DropField label="Rodzaj" value={entry.rodzaj} options={BRAMKI_RODZAJ} onChange={(v) => setMod8(d => { const e = [...(d.bramkiEntries || [])]; e[i] = { ...e[i], rodzaj: v as never }; return { ...d, bramkiEntries: e }; })} disabled={!canMod8} />
-              <DropField label="Status" value={entry.status} options={BRAMKI_STATUS} onChange={(v) => setMod8(d => { const e = [...(d.bramkiEntries || [])]; e[i] = { ...e[i], status: v as never }; return { ...d, bramkiEntries: e }; })} disabled={!canMod8} />
-              <CommentField value={entry.komentarz} onChange={(v) => setMod8(d => { const e = [...(d.bramkiEntries || [])]; e[i] = { ...e[i], komentarz: v }; return { ...d, bramkiEntries: e }; })} disabled={!canMod8} />
+              <TextField label="Nazwa" value={entry.nazwa} onChange={(v) => setMod8(d => { const e = [...(d.bramkiEntries || [])]; e[i] = { ...e[i], nazwa: v }; return { ...d, bramkiEntries: e }; })} disabled={!canMod8A} />
+              <DropField label="Rodzaj" value={entry.rodzaj} options={BRAMKI_RODZAJ} onChange={(v) => setMod8(d => { const e = [...(d.bramkiEntries || [])]; e[i] = { ...e[i], rodzaj: v as never }; return { ...d, bramkiEntries: e }; })} disabled={!canMod8A} />
+              <DropField label="Status" value={entry.status} options={BRAMKI_STATUS} onChange={(v) => setMod8(d => { const e = [...(d.bramkiEntries || [])]; e[i] = { ...e[i], status: v as never }; return { ...d, bramkiEntries: e }; })} disabled={!canMod8A} />
+              <CommentField value={entry.komentarz} onChange={(v) => setMod8(d => { const e = [...(d.bramkiEntries || [])]; e[i] = { ...e[i], komentarz: v }; return { ...d, bramkiEntries: e }; })} disabled={!canMod8A} />
             </div>
           ))}
           {(mod8.bramkiEntries || []).length === 0 && <p className="text-xs text-gray-400 mb-1">Brak wpisów</p>}
-          {canMod8 && <button type="button" onClick={() => setMod8(d => ({ ...d, bramkiEntries: [...(d.bramkiEntries || []), {}] }))} className="text-xs text-blue-600 hover:underline mb-3 block">+ Dodaj bramkę</button>}
+          {canMod8A && <button type="button" onClick={() => setMod8(d => ({ ...d, bramkiEntries: [...(d.bramkiEntries || []), {}] }))} className="text-xs text-blue-600 hover:underline mb-3 block">+ Dodaj bramkę</button>}
 
-          <SubModuleHeader title="9B — Domena/Hosting" closed={c.mod8BClosed} canEdit={canMod8} onToggle={() => toggleModuleClosed("mod8BClosed", c.mod8BClosed)} />
+          <SubModuleHeader title="9B — Domena/Hosting" closed={c.mod8BClosed} canEdit={canMod8B} onToggle={() => toggleModuleClosed("mod8BClosed", c.mod8BClosed)} />
           {(mod8.domenaEntries || []).map((entry, i) => (
             <div key={i} className="mb-2 pb-2 border-b border-gray-100 last:border-0">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-gray-400">Domena #{i + 1}</span>
-                {canMod8 && <button type="button" onClick={() => setMod8(d => ({ ...d, domenaEntries: (d.domenaEntries || []).filter((_, j) => j !== i) }))} className="text-xs text-red-400 hover:text-red-600">Usuń</button>}
+                {canMod8B && <button type="button" onClick={() => setMod8(d => ({ ...d, domenaEntries: (d.domenaEntries || []).filter((_, j) => j !== i) }))} className="text-xs text-red-400 hover:text-red-600">Usuń</button>}
               </div>
-              <TextField label="Nazwa" value={entry.nazwa} onChange={(v) => setMod8(d => { const e = [...(d.domenaEntries || [])]; e[i] = { ...e[i], nazwa: v }; return { ...d, domenaEntries: e }; })} disabled={!canMod8} />
-              <DropField label="Cesja" value={entry.rodzaj} options={DOMENA_RODZAJ} onChange={(v) => setMod8(d => { const e = [...(d.domenaEntries || [])]; e[i] = { ...e[i], rodzaj: v as never }; return { ...d, domenaEntries: e }; })} disabled={!canMod8} />
-              <DropField label="Status" value={entry.status} options={DOMENA_STATUS} onChange={(v) => setMod8(d => { const e = [...(d.domenaEntries || [])]; e[i] = { ...e[i], status: v as never }; return { ...d, domenaEntries: e }; })} disabled={!canMod8} />
-              <CommentField value={entry.komentarz} onChange={(v) => setMod8(d => { const e = [...(d.domenaEntries || [])]; e[i] = { ...e[i], komentarz: v }; return { ...d, domenaEntries: e }; })} disabled={!canMod8} />
+              <TextField label="Nazwa" value={entry.nazwa} onChange={(v) => setMod8(d => { const e = [...(d.domenaEntries || [])]; e[i] = { ...e[i], nazwa: v }; return { ...d, domenaEntries: e }; })} disabled={!canMod8B} />
+              <DropField label="Cesja" value={entry.rodzaj} options={DOMENA_RODZAJ} onChange={(v) => setMod8(d => { const e = [...(d.domenaEntries || [])]; e[i] = { ...e[i], rodzaj: v as never }; return { ...d, domenaEntries: e }; })} disabled={!canMod8B} />
+              <DropField label="Status" value={entry.status} options={DOMENA_STATUS} onChange={(v) => setMod8(d => { const e = [...(d.domenaEntries || [])]; e[i] = { ...e[i], status: v as never }; return { ...d, domenaEntries: e }; })} disabled={!canMod8B} />
+              <CommentField value={entry.komentarz} onChange={(v) => setMod8(d => { const e = [...(d.domenaEntries || [])]; e[i] = { ...e[i], komentarz: v }; return { ...d, domenaEntries: e }; })} disabled={!canMod8B} />
             </div>
           ))}
           {(mod8.domenaEntries || []).length === 0 && <p className="text-xs text-gray-400 mb-1">Brak wpisów</p>}
-          {canMod8 && <button type="button" onClick={() => setMod8(d => ({ ...d, domenaEntries: [...(d.domenaEntries || []), {}] }))} className="text-xs text-blue-600 hover:underline">+ Dodaj domenę</button>}
+          {canMod8B && <button type="button" onClick={() => setMod8(d => ({ ...d, domenaEntries: [...(d.domenaEntries || []), {}] }))} className="text-xs text-blue-600 hover:underline">+ Dodaj domenę</button>}
         </ModuleCard>
 
       </div>

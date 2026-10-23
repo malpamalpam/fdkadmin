@@ -14,7 +14,7 @@ const MODULE_PERM_KEY: Record<ModuleKey, string> = {
   mod5Legal: "mod5",        // UI module 6
   mod6Platnosci: "mod6",    // UI module 7
   mod7Umowy: "mod7",        // UI module 8
-  mod8Inne: "mod8",         // UI module 9
+  mod8Inne: "mod8A",        // UI module 9 — allow if user can edit 9A or 9B (checked below)
 };
 
 // ─── Auto-close helpers ───────────────────────────────────────────────────────
@@ -178,7 +178,13 @@ export async function PATCH(
   }
 
   const permKey = MODULE_PERM_KEY[moduleKey];
-  if (!canEditModule(session.dept, session.role, permKey, session.extraDepts)) {
+  // mod8Inne (UI module 9) has split permissions: 9A (mod8A) and 9B (mod8B).
+  // Allow save if user can edit either sub-module; frontend controls field-level access.
+  const hasModulePerm = moduleKey === "mod8Inne"
+    ? canEditModule(session.dept, session.role, "mod8A", session.extraDepts) ||
+      canEditModule(session.dept, session.role, "mod8B", session.extraDepts)
+    : canEditModule(session.dept, session.role, permKey, session.extraDepts);
+  if (!hasModulePerm) {
     return NextResponse.json({ error: "Forbidden — brak uprawnień do tego modułu" }, { status: 403 });
   }
 

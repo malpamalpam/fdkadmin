@@ -365,7 +365,8 @@ export const MODULE_DEPT_MAP: Record<string, string[]> = {
   mod5: ["LEGALIZACJA"],                      // UI module 6: Legalizacja
   mod6: ["OPLATY", "TUTLO_OPLATY"],           // UI module 7: Płatności
   mod7: ["B2B"],                              // UI module 8: Umowy — B2B dept edits, OPLATY gets notifications
-  mod8: ["ADMINISTRACJA", "TUTLO"],           // UI module 9: Inne
+  mod8A: ["ADMINISTRACJA", "TUTLO", "KSIEGOWOSC"],  // UI module 9A: Bramki płatności
+  mod8B: ["ADMINISTRACJA", "TUTLO"],                 // UI module 9B: Domena/Hosting
 };
 
 export function canEditModule(
@@ -520,15 +521,21 @@ export function collectBraki(
     } else if (m.najmUmowa !== "Nie dotyczy") addYR("Wypowiedzenie najmu", m.najmWypowiedzenie);
   }
 
-  // mod8Inne (UI module 9)
-  if (isAdminLike || canEditModule(userDept, userRole, "mod8", extraDepts)) {
+  // mod8Inne (UI module 9) — split: 9A (mod8A) bramki, 9B (mod8B) domena
+  const canSee9A = isAdminLike || canEditModule(userDept, userRole, "mod8A", extraDepts);
+  const canSee9B = isAdminLike || canEditModule(userDept, userRole, "mod8B", extraDepts);
+  if (canSee9A || canSee9B) {
     const m = (c.mod8Inne || {}) as Mod8Inne;
-    if (m.bramkiEntries?.length) {
-      m.bramkiEntries.forEach((e, i) => { if (e.rodzaj !== "Nie dotyczy") addYR(`Status bramki #${i+1}`, e.status); });
-    } else if (m.bramkiRodzaj !== "Nie dotyczy") addYR("Status bramki płatności", m.bramkiStatus);
-    if (m.domenaEntries?.length) {
-      m.domenaEntries.forEach((e, i) => { if (e.rodzaj !== "Nie dotyczy") addYR(`Status domena #${i+1}`, e.status); });
-    } else if (m.domenaRodzaj !== "Nie dotyczy") addYR("Status domena/hosting", m.domenaStatus);
+    if (canSee9A) {
+      if (m.bramkiEntries?.length) {
+        m.bramkiEntries.forEach((e, i) => { if (e.rodzaj !== "Nie dotyczy") addYR(`Status bramki #${i+1}`, e.status); });
+      } else if (m.bramkiRodzaj !== "Nie dotyczy") addYR("Status bramki płatności", m.bramkiStatus);
+    }
+    if (canSee9B) {
+      if (m.domenaEntries?.length) {
+        m.domenaEntries.forEach((e, i) => { if (e.rodzaj !== "Nie dotyczy") addYR(`Status domena #${i+1}`, e.status); });
+      } else if (m.domenaRodzaj !== "Nie dotyczy") addYR("Status domena/hosting", m.domenaStatus);
+    }
   }
 
   return braki;
