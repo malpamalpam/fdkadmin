@@ -84,8 +84,12 @@ function computeAutoClose(moduleKey: string, data: Record<string, unknown>): Rec
 
   if (moduleKey === "mod4Ksieg") {
     // UI Module 5: 5A — documents, 5B — payments
-    if (isGG(get(data, "brakiKsiegPlatnosciStatus"))) result.mod4BClosed = true;
-    if (isGG(get(data, "brakiKsiegPlatnosciStatus"))) result.mod4Closed = true;
+    const dok = get(data, "brakiKsiegDok");
+    const dokOk = dok === "Komplet" || dok === "Nie uzyskano";
+    if (dokOk) result.mod4AClosed = true;
+    const platOk = isGG(get(data, "brakiKsiegPlatnosciStatus"));
+    if (platOk) result.mod4BClosed = true;
+    if (dokOk && platOk) result.mod4Closed = true;
   }
 
   if (moduleKey === "mod5Legal") {
@@ -95,9 +99,13 @@ function computeAutoClose(moduleKey: string, data: Record<string, unknown>): Rec
       result.mod5AClosed = true;
       result.mod5BClosed = true;
     } else {
-      // UI Module 6: 6B — payments
-      if (isGG(get(data, "brakiLegalPlatnosciStatus"))) result.mod5BClosed = true;
-      if (isGG(get(data, "brakiLegalPlatnosciStatus"))) result.mod5Closed = true;
+      // UI Module 6: 6A — documents, 6B — payments
+      const dok = get(data, "brakiLegalDok");
+      const dokOk = dok === "Komplet" || dok === "Nie uzyskano";
+      if (dokOk) result.mod5AClosed = true;
+      const platOk = isGG(get(data, "brakiLegalPlatnosciStatus"));
+      if (platOk) result.mod5BClosed = true;
+      if (dokOk && platOk) result.mod5Closed = true;
     }
   }
 
