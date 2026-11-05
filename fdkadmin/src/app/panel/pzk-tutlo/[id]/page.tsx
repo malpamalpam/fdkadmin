@@ -8,6 +8,7 @@ import {
   PZK_CLIENT_TYPE_LABELS, getFieldColor, getAmountColor, canEditModule, FieldColor,
   collectBraki, countFieldColors, closedUnitCount, TOTAL_CLOSE_UNITS,
 } from "@/lib/pzk-types";
+import PzkSendModal from "@/components/PzkSendModal";
 import { useUser } from "@/lib/user-context";
 
 // ─── Color badge ──────────────────────────────────────────────────────────────
@@ -347,10 +348,6 @@ export default function PzkCasePage() {
   const [history, setHistory] = useState<{ id: string; changedBy: string; changedAt: string; field: string; oldValue: string | null; newValue: string | null }[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [sendModal, setSendModal] = useState(false);
-  const [isUrgent, setIsUrgent] = useState(false);
-  const [urgentLabel, setUrgentLabel] = useState("1h");
-  const [sendSaving, setSendSaving] = useState(false);
-  const [sendResult, setSendResult] = useState<string | null>(null);
 
   // Module draft states
   const [mod2, setMod2] = useState<Mod2Admin>({});
@@ -487,26 +484,11 @@ export default function PzkCasePage() {
     if (res.ok) setC(await res.json());
   }
 
-  async function handleSend() {
-    setSendSaving(true);
-    setSendResult(null);
-    try {
-      const res = await fetch(`/api/pzk/${id}/send`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isUrgent, urgentLabel: isUrgent ? urgentLabel : null }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSendResult(`Wysłano do ${data.recipientCount} grup odbiorców.`);
-        load();
-      } else {
-        setSendResult(data.error || "Błąd wysyłania");
-      }
-    } finally {
-      setSendSaving(false);
-    }
-  }
+  const sendCases = c ? [{
+    id: c.id,
+    name: `${c.firstNames} ${c.lastName}`,
+    emailInitialSent: c.emailInitialSent,
+  }] : [];
 
   async function loadHistory() {
     const res = await fetch(`/api/pzk/${id}/history`);
@@ -1233,43 +1215,12 @@ export default function PzkCasePage() {
       )}
 
       {/* Send modal */}
-      {sendModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
-            <h2 className="font-bold text-gray-900 mb-4">Wyślij sprawę</h2>
-            <div className="space-y-3 mb-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={isUrgent} onChange={(e) => setIsUrgent(e.target.checked)} />
-                <span className="text-sm font-medium">PILNE</span>
-              </label>
-              {isUrgent && (
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Deadline</label>
-                  <select className="w-full border rounded px-3 py-1.5 text-sm" value={urgentLabel} onChange={(e) => setUrgentLabel(e.target.value)}>
-                    <option value="1h">1 godzina</option>
-                    <option value="2h">2 godziny</option>
-                    <option value="3h">3 godziny</option>
-                    <option value="1 dzień">1 dzień</option>
-                  </select>
-                </div>
-              )}
-              {!isUrgent && <p className="text-xs text-gray-500">Deadline: 2 dni robocze (domyślny)</p>}
-            </div>
-            {sendResult && <p className="text-sm mb-3 text-blue-700">{sendResult}</p>}
-            <div className="flex gap-2">
-              <button
-                onClick={handleSend}
-                disabled={sendSaving}
-                className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
-              >
-                {sendSaving ? "Wysyłanie..." : "Wyślij powiadomienia"}
-              </button>
-              <button onClick={() => { setSendModal(false); setSendResult(null); }} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
-                Zamknij
-              </button>
-            </div>
-          </div>
-        </div>
+      {sendModal && sendCases.length > 0 && (
+        <PzkSendModal
+          cases={sendCases}
+          onClose={() => setSendModal(false)}
+          onSent={() => load()}
+        />
       )}
 
     </div>

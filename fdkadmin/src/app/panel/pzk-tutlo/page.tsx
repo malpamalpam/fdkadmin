@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { PZK_CLIENT_TYPE_LABELS, PzkCase, countFieldColors, closedUnitCount, TOTAL_CLOSE_UNITS } from "@/lib/pzk-types";
+import { useUser } from "@/lib/user-context";
+import PzkSendModal from "@/components/PzkSendModal";
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
@@ -10,6 +12,7 @@ function formatDate(iso: string | null): string {
 }
 
 export default function PzkTutloPage() {
+  const user = useUser();
   const [cases, setCases] = useState<PzkCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -17,6 +20,20 @@ export default function PzkTutloPage() {
   const [statusFilter, setStatusFilter] = useState<Set<string>>(() => new Set(["open"]));
   const [allMonths, setAllMonths] = useState<string[]>([]);
   const monthsLoaded = useRef(false);
+
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showSendModal, setShowSendModal] = useState(false);
+
+  // Can this user send notifications?
+  const allDepts = [user?.dept, ...(user?.extraDepts || [])].filter(Boolean);
+  const canSend =
+    user?.role === "ADMIN" ||
+    user?.role === "SUPERVISOR" ||
+    allDepts.includes("ADMINISTRACJA") ||
+    allDepts.includes("TUTLO");
+
+  // Selectable = not withdrawn, not closed
+  const selectableCases = cases.filter((c) => !c.withdrawnFromNotice && !c.caseClosed);
 
   // Load available months once (from all cases, unfiltered)
   useEffect(() => {
@@ -54,6 +71,9 @@ export default function PzkTutloPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Clear selection on filter change
+  useEffect(() => { setSelected(new Set()); }, [monthFilter, search, statusFilter]);
+
   const now = new Date();
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
@@ -65,6 +85,38 @@ export default function PzkTutloPage() {
       return next;
     });
   }
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAll() {
+    const allIds = selectableCases.map((c) => c.id);
+    const allSelected = allIds.every((id) => selected.has(id));
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(allIds));
+    }
+  }
+
+  function selectUnsent() {
+    const unsent = selectableCases.filter((c) => !c.emailInitialSent).map((c) => c.id);
+    setSelected(new Set(unsent));
+  }
+
+  const selectedCases = cases.filter((c) => selected.has(c.id)).map((c) => ({
+    id: c.id,
+    name: `${c.firstNames} ${c.lastName}`,
+    emailInitialSent: c.emailInitialSent,
+  }));
+
+  const allSelectableSelected = selectableCases.length > 0 && selectableCases.every((c) => selected.has(c.id));
 
   return (
     <div>
@@ -122,6 +174,45 @@ export default function PzkTutloPage() {
         </div>
       </div>
 
+      {/* Bulk action bar */}
+      {canSend && selected.size > 0 && (
+        <div className="flex items-center gap-3 mb-3 bg-purple-50 border border-purple-200 rounded-lg px-4 py-2.5">
+          <span className="text-sm font-medium text-purple-800">Zaznaczono: {selected.size}</span>
+          <button
+            onClick={() => setShowSendModal(true)}
+            className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-green-700"
+          >
+            Wyślij zaznaczone
+          </button>
+          <button
+            onClick={() => setSelected(new Set())}
+            className="text-sm text-gray-600 hover:text-gray-900"
+          >
+            Odznacz
+          </button>
+        </div>
+      )}
+
+      {/* Select all / unsent controls */}
+      {canSend && !loading && cases.length > 0 && (
+        <div className="flex items-center gap-3 mb-2">
+          <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={allSelectableSelected}
+              onChange={selectAll}
+              className="rounded"
+            />
+            Zaznacz wszystkie
+          </label>
+          {selectableCases.some((c) => !c.emailInitialSent) && (
+            <button onClick={selectUnsent} className="text-xs text-purple-600 hover:underline">
+              Zaznacz niewysłane
+            </button>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <div className="text-gray-500 py-10 text-center">Ładowanie...</div>
       ) : cases.length === 0 ? (
@@ -132,64 +223,92 @@ export default function PzkTutloPage() {
             const closed = closedUnitCount(c);
             const total = TOTAL_CLOSE_UNITS;
             const allClosed = closed === total;
+            const selectable = canSend && !c.withdrawnFromNotice && !c.caseClosed;
             return (
-              <Link
-                key={c.id}
-                href={`/panel/pzk-tutlo/${c.id}`}
-                className={`block bg-white border rounded-lg px-4 py-3 hover:border-purple-400 transition-colors ${c.withdrawnFromNotice || c.caseClosed ? "opacity-60" : ""}`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-gray-900">{c.firstNames} {c.lastName}</span>
-                      {c.caseClosed && (
-                        <span className="text-xs px-2 py-0.5 bg-gray-200 text-gray-700 rounded-full font-medium">Zamknięta</span>
-                      )}
-                      {c.withdrawnFromNotice && (
-                        <span className="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full">Rezygnacja</span>
-                      )}
-                      {allClosed && !c.withdrawnFromNotice && !c.caseClosed && (
-                        <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">Komplet</span>
-                      )}
-                    </div>
-                    <div className="text-sm text-gray-500 mt-0.5 flex flex-wrap gap-3">
-                      <span>{PZK_CLIENT_TYPE_LABELS[c.clientType]}</span>
-                      {c.benefEmail && <span>{c.benefEmail}</span>}
-                      <span>Koniec: <strong>{formatDate(c.cooperationEndsAt)}</strong></span>
-                    </div>
-                    {!c.withdrawnFromNotice && !c.caseClosed && (() => {
-                      const cc = countFieldColors(c);
-                      return (
-                        <div className="flex gap-2 text-xs mt-0.5">
-                          <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />{cc.green}</span>
-                          <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />{cc.yellow}</span>
-                          <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />{cc.red}</span>
-                          {cc.undefined > 0 && <span className="text-gray-400">?{cc.undefined}</span>}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                  <div className="flex-shrink-0 text-right">
-                    {!c.withdrawnFromNotice && (
-                      <>
-                        <div className="text-sm font-medium text-gray-700">{closed}/{total} modułów</div>
-                        <div className="w-24 h-1.5 bg-gray-200 rounded-full mt-1">
-                          <div
-                            className={`h-1.5 rounded-full transition-all ${allClosed ? "bg-green-500" : "bg-purple-500"}`}
-                            style={{ width: `${(closed / total) * 100}%` }}
-                          />
-                        </div>
-                        {!c.emailInitialSent && (
-                          <div className="text-xs text-orange-600 mt-1">Nie wysłano</div>
-                        )}
-                      </>
+              <div key={c.id} className="flex items-center gap-2">
+                {canSend && (
+                  <div className="flex-shrink-0">
+                    {selectable ? (
+                      <input
+                        type="checkbox"
+                        checked={selected.has(c.id)}
+                        onChange={() => toggleSelect(c.id)}
+                        className="rounded cursor-pointer"
+                      />
+                    ) : (
+                      <input type="checkbox" disabled className="rounded opacity-30" />
                     )}
                   </div>
-                </div>
-              </Link>
+                )}
+                <Link
+                  href={`/panel/pzk-tutlo/${c.id}`}
+                  className={`block flex-1 bg-white border rounded-lg px-4 py-3 hover:border-purple-400 transition-colors ${c.withdrawnFromNotice || c.caseClosed ? "opacity-60" : ""}`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-gray-900">{c.firstNames} {c.lastName}</span>
+                        {c.caseClosed && (
+                          <span className="text-xs px-2 py-0.5 bg-gray-200 text-gray-700 rounded-full font-medium">Zamknięta</span>
+                        )}
+                        {c.withdrawnFromNotice && (
+                          <span className="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full">Rezygnacja</span>
+                        )}
+                        {allClosed && !c.withdrawnFromNotice && !c.caseClosed && (
+                          <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">Komplet</span>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-500 mt-0.5 flex flex-wrap gap-3">
+                        <span>{PZK_CLIENT_TYPE_LABELS[c.clientType]}</span>
+                        {c.benefEmail && <span>{c.benefEmail}</span>}
+                        <span>Koniec: <strong>{formatDate(c.cooperationEndsAt)}</strong></span>
+                      </div>
+                      {!c.withdrawnFromNotice && !c.caseClosed && (() => {
+                        const cc = countFieldColors(c);
+                        return (
+                          <div className="flex gap-2 text-xs mt-0.5">
+                            <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />{cc.green}</span>
+                            <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />{cc.yellow}</span>
+                            <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />{cc.red}</span>
+                            {cc.undefined > 0 && <span className="text-gray-400">?{cc.undefined}</span>}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    <div className="flex-shrink-0 text-right">
+                      {!c.withdrawnFromNotice && (
+                        <>
+                          <div className="text-sm font-medium text-gray-700">{closed}/{total} modułów</div>
+                          <div className="w-24 h-1.5 bg-gray-200 rounded-full mt-1">
+                            <div
+                              className={`h-1.5 rounded-full transition-all ${allClosed ? "bg-green-500" : "bg-purple-500"}`}
+                              style={{ width: `${(closed / total) * 100}%` }}
+                            />
+                          </div>
+                          {!c.emailInitialSent && (
+                            <div className="text-xs text-orange-600 mt-1">Nie wysłano</div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              </div>
             );
           })}
         </div>
+      )}
+
+      {/* Send modal */}
+      {showSendModal && selectedCases.length > 0 && (
+        <PzkSendModal
+          cases={selectedCases}
+          onClose={() => setShowSendModal(false)}
+          onSent={() => {
+            setSelected(new Set());
+            load();
+          }}
+        />
       )}
     </div>
   );
