@@ -24,6 +24,8 @@ const GREEN_GRAY_VALUES = new Set([
   "Podpisana i wysłana", "Beneficjent nie posiada PESEL",
   "Opłacono", "Opłacono - z subkonta", "Opłacono - wpłata zewnętrzna", "Opłacono - gotówka",
   "Nie dotyczy", "Odmowa",
+  "Komplet - oryginały", "Komplet - skany", "Komplet - S/O", // doc status (3A/5A/6A)
+  "Niekompletne - nie uzyskano", // red but terminal — auto-close
 ]);
 
 function isGG(v: string | undefined | null): boolean {
@@ -59,6 +61,8 @@ function computeAutoClose(moduleKey: string, data: Record<string, unknown>): Rec
 
   if (moduleKey === "mod3Kadry") {
     // UI Module 3: Kadry sprawy kadrowe
+    // 3A: dokumenty
+    if (isGG(get(data, "brakiKadryDokStatus"))) result.mod3AClosed = true;
     // 3B: płatności
     if (isGG(get(data, "brakiKadryPlatnosciStatus"))) result.mod3PayClosed = true;
     // 3C: legitymacje
@@ -84,8 +88,7 @@ function computeAutoClose(moduleKey: string, data: Record<string, unknown>): Rec
 
   if (moduleKey === "mod4Ksieg") {
     // UI Module 5: 5A — documents, 5B — payments
-    const dok = get(data, "brakiKsiegDok");
-    const dokOk = dok === "Komplet" || dok === "Nie uzyskano";
+    const dokOk = isGG(get(data, "brakiKsiegDokStatus"));
     if (dokOk) result.mod4AClosed = true;
     const platOk = isGG(get(data, "brakiKsiegPlatnosciStatus"));
     if (platOk) result.mod4BClosed = true;
@@ -100,8 +103,7 @@ function computeAutoClose(moduleKey: string, data: Record<string, unknown>): Rec
       result.mod5BClosed = true;
     } else {
       // UI Module 6: 6A — documents, 6B — payments
-      const dok = get(data, "brakiLegalDok");
-      const dokOk = dok === "Komplet" || dok === "Nie uzyskano";
+      const dokOk = isGG(get(data, "brakiLegalDokStatus"));
       if (dokOk) result.mod5AClosed = true;
       const platOk = isGG(get(data, "brakiLegalPlatnosciStatus"));
       if (platOk) result.mod5BClosed = true;

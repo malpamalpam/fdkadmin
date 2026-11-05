@@ -6,7 +6,7 @@ import {
   PzkCase, PzkClientType, Mod2Admin, Mod3Kadry, Mod4Ksieg, Mod5Legal,
   Mod6Platnosci, Mod7Umowy, Mod8Inne, ContactEntry,
   PZK_CLIENT_TYPE_LABELS, getFieldColor, getAmountColor, canEditModule, FieldColor,
-  collectBraki, countFieldColors, closedUnitCount, TOTAL_CLOSE_UNITS,
+  collectBraki, countFieldColors, closedUnitCount, TOTAL_CLOSE_UNITS, DOC_STATUS_OPTIONS,
 } from "@/lib/pzk-types";
 import PzkSendModal from "@/components/PzkSendModal";
 import { useUser } from "@/lib/user-context";
@@ -882,6 +882,7 @@ export default function PzkCasePage() {
           subModulesOpen={[...(!c.mod3AClosed ? ["3A"] : []), ...(!c.mod3PayClosed ? ["3B"] : []), ...(!c.mod3LegitClosed ? ["3C"] : [])]}
         >
           <SubModuleHeader title="3A — Dokumenty" closed={c.mod3AClosed} canEdit={canKadry} onToggle={() => toggleModuleClosed("mod3AClosed", c.mod3AClosed)} />
+          <DropField label="Status dokumentów" value={mod3.brakiKadryDokStatus} options={DOC_STATUS_OPTIONS} onChange={(v) => setMod3(d => ({ ...d, brakiKadryDokStatus: v }))} disabled={!canKadry} />
           <TextAreaField label="Braki HR/Kadry – dokumenty" value={mod3.brakiKadryDok} onChange={(v) => setMod3(d => ({ ...d, brakiKadryDok: v }))} disabled={!canKadry} />
           <CommentField value={mod3.brakiKadryDokKomentarz} onChange={(v) => setMod3(d => ({ ...d, brakiKadryDokKomentarz: v }))} disabled={!canKadry} />
           <TextAreaField label="Uzupełnione" value={mod3.brakiKadryDokUzup} onChange={(v) => setMod3(d => ({ ...d, brakiKadryDokUzup: v }))} disabled={!canKadry} />
@@ -968,6 +969,7 @@ export default function PzkCasePage() {
           subModulesOpen={[...(!c.mod4AClosed ? ["5A"] : []), ...(!c.mod4BClosed ? ["5B"] : [])]}
         >
           <SubModuleHeader title="5A — Dokumenty" closed={c.mod4AClosed} canEdit={canKsieg} onToggle={() => toggleModuleClosed("mod4AClosed", c.mod4AClosed)} />
+          <DropField label="Status dokumentów" value={mod4.brakiKsiegDokStatus} options={DOC_STATUS_OPTIONS} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegDokStatus: v }))} disabled={!canKsieg} />
           <TextAreaField label="Braki księgowość – dokumenty" value={mod4.brakiKsiegDok} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegDok: v }))} disabled={!canKsieg} />
           <TextAreaField label="Uzupełnione" value={mod4.brakiKsiegDokUzup} onChange={(v) => setMod4(d => ({ ...d, brakiKsiegDokUzup: v }))} disabled={!canKsieg} />
 
@@ -1024,6 +1026,7 @@ export default function PzkCasePage() {
           )}
 
           <SubModuleHeader title="6A — Dokumenty" closed={c.mod5AClosed || c.mod5Closed} canEdit={canLegal && !c.mod5Closed} onToggle={() => toggleModuleClosed("mod5AClosed", c.mod5AClosed)} />
+          <DropField label="Status dokumentów" value={mod5.brakiLegalDokStatus} options={DOC_STATUS_OPTIONS} onChange={(v) => setMod5(d => ({ ...d, brakiLegalDokStatus: v }))} disabled={!canLegal || c.mod5Closed} />
           <TextAreaField label="Braki legalizacja – dokumenty" value={mod5.brakiLegalDok} onChange={(v) => setMod5(d => ({ ...d, brakiLegalDok: v }))} disabled={!canLegal || c.mod5Closed} />
           <TextAreaField label="Uzupełnione" value={mod5.brakiLegalDokUzup} onChange={(v) => setMod5(d => ({ ...d, brakiLegalDokUzup: v }))} disabled={!canLegal || c.mod5Closed} />
 

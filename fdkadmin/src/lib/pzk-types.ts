@@ -27,14 +27,17 @@ const GREEN_VALUES = new Set([
   "Opłacono", "Opłacono - z subkonta", "Opłacono - wpłata zewnętrzna", "Opłacono - gotówka",
   "Odmowa", // positive: beneficjent refused electronic form, paper doc in CRM
   "Na opłaty", "Na VAT", // mBank status — funds allocated
+  "Komplet - oryginały", "Komplet - skany", "Komplet - S/O", // document status (3A/5A/6A)
 ]);
 const YELLOW_VALUES = new Set([
   "Skan", "Do uzupełnienia", "Do wysłania", "Aktywne", "Do wpisania",
   "Do wyzerowania", "Do wyjaśnienia",
+  "Niekompletne - do uzupełnienia", // document status (3A/5A/6A)
 ]);
 const RED_VALUES = new Set([
   "Nie uzyskano", "Potwierdzenie - brak",
   "Brak adresu zamieszkania", "Brak telefonu",
+  "Niekompletne - nie uzyskano", // document status (3A/5A/6A)
 ]);
 const GRAY_VALUES = new Set(["Nie dotyczy"]);
 
@@ -110,9 +113,17 @@ export interface Mod2Admin {
 // ─── Module 4: Kadry — ubezpieczenia ─────────────────────────────────────────
 // Both stored in the same JSON blob (mod3Kadry in DB)
 
+export type DocStatus = "Komplet - oryginały" | "Komplet - skany" | "Komplet - S/O" | "Niekompletne - do uzupełnienia" | "Niekompletne - nie uzyskano";
+
+export const DOC_STATUS_OPTIONS: string[] = [
+  "Komplet - oryginały", "Komplet - skany", "Komplet - S/O",
+  "Niekompletne - do uzupełnienia", "Niekompletne - nie uzyskano",
+];
+
 export interface Mod3Kadry {
   // 3A — Dokumenty
   brakiKadryDok?: string; // "Do wpisania" | "Komplet" | "Nie uzyskano:…"
+  brakiKadryDokStatus?: DocStatus;
   brakiKadryDokKomentarz?: string;
   brakiKadryDokUzup?: string; // free text of what was completed
   brakiKadryDokUzupKomentarz?: string;
@@ -146,6 +157,7 @@ export interface Mod3Kadry {
 export interface Mod4Ksieg {
   // 5A
   brakiKsiegDok?: string; // "Do wpisania" | "Komplet" | "Nie uzyskano"
+  brakiKsiegDokStatus?: DocStatus;
   brakiKsiegDokUzup?: string;
   // 5B
   brakiKsiegPlatnosci?: string; // amount
@@ -162,6 +174,7 @@ export interface Mod5Legal {
   legalNieDotyczy?: boolean; // "Nie dotyczy — zamknij moduł"
   // 6A
   brakiLegalDok?: string;
+  brakiLegalDokStatus?: DocStatus;
   brakiLegalDokUzup?: string;
   // 6B
   brakiLegalPlatnosci?: string;
@@ -461,6 +474,7 @@ export function collectBraki(
   if (isAdminLike || canEditModule(userDept, userRole, "mod3", extraDepts)) {
     const m = (c.mod3Kadry || {}) as Mod3Kadry;
     // Module 3: sprawy kadrowe
+    addYR("Status dokumentów kadrowych", m.brakiKadryDokStatus);
     if (m.brakiKadryDok && m.brakiKadryDok !== "Komplet")
       braki.push(`Braki HR/Kadry – dokumenty: ${m.brakiKadryDok}`);
     addAmount("Braki HR/Kadry – płatności", m.brakiKadryPlatnosci, m.brakiKadryPlatnosciStatus);
@@ -477,6 +491,7 @@ export function collectBraki(
   // mod4Ksieg (UI module 5)
   if (isAdminLike || canEditModule(userDept, userRole, "mod4", extraDepts)) {
     const m = (c.mod4Ksieg || {}) as Mod4Ksieg;
+    addYR("Status dokumentów księgowych", m.brakiKsiegDokStatus);
     if (m.brakiKsiegDok && m.brakiKsiegDok !== "Komplet")
       braki.push(`Braki księgowość – dokumenty: ${m.brakiKsiegDok}`);
     addAmount("Braki księgowość – płatności", m.brakiKsiegPlatnosci, m.brakiKsiegPlatnosciStatus);
@@ -487,6 +502,7 @@ export function collectBraki(
   if (isAdminLike || canEditModule(userDept, userRole, "mod5", extraDepts)) {
     const m = (c.mod5Legal || {}) as Mod5Legal;
     if (!m.legalNieDotyczy) {
+      addYR("Status dokumentów legalizacji", m.brakiLegalDokStatus);
       if (m.brakiLegalDok && m.brakiLegalDok !== "Komplet")
         braki.push(`Braki legalizacja – dokumenty: ${m.brakiLegalDok}`);
       addAmount("Braki legalizacja – płatności", m.brakiLegalPlatnosci, m.brakiLegalPlatnosciStatus);
@@ -588,7 +604,7 @@ export function countFieldColors(c: PzkCase): ColorCounts {
   // Module 3: Kadry sprawy
   const m3 = (c.mod3Kadry || {}) as Mod3Kadry;
   const c3a = c.mod3AClosed;
-  // 3A has text fields — no color dots to count
+  check(m3.brakiKadryDokStatus, c3a);
   const c3b = c.mod3PayClosed;
   check(m3.brakiKadryPlatnosciStatus, c3b);
   checkAmount(m3.brakiKadryPlatnosci, m3.brakiKadryPlatnosciStatus, c3b);
@@ -612,6 +628,8 @@ export function countFieldColors(c: PzkCase): ColorCounts {
 
   // Module 5: Księgowość (DB: mod4)
   const m4 = (c.mod4Ksieg || {}) as Mod4Ksieg;
+  const c5a = c.mod4AClosed;
+  check(m4.brakiKsiegDokStatus, c5a);
   const c5b = c.mod4BClosed;
   check(m4.brakiKsiegPlatnosciStatus, c5b);
   checkAmount(m4.brakiKsiegPlatnosci, m4.brakiKsiegPlatnosciStatus, c5b);
@@ -619,11 +637,14 @@ export function countFieldColors(c: PzkCase): ColorCounts {
   // Module 6: Legalizacja (DB: mod5)
   const m5 = (c.mod5Legal || {}) as Mod5Legal;
   const legalND = m5.legalNieDotyczy;
+  const c6a = c.mod5AClosed;
   const c6b = c.mod5BClosed;
   if (legalND) {
+    checkGray(true); // legal docs → gray
     checkGray(true); // legal payments → gray
     checkGray(true); // legal amount → gray
   } else {
+    check(m5.brakiLegalDokStatus, c6a);
     check(m5.brakiLegalPlatnosciStatus, c6b);
     checkAmount(m5.brakiLegalPlatnosci, m5.brakiLegalPlatnosciStatus, c6b);
   }
