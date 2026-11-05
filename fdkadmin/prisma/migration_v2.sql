@@ -12,7 +12,6 @@ DO $$ BEGIN
   CREATE TYPE "Salutation" AS ENUM ('PAN', 'PANI');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   CREATE TYPE "Language" AS ENUM ('PL', 'EN', 'RU');
 EXCEPTION WHEN duplicate_object THEN NULL;

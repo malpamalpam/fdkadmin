@@ -41,13 +41,15 @@ async function getDeptEmails(deptCode: string): Promise<string[]> {
 //   mod7 (7)         → OPLATY (m.niewiarowska)  mod7     → TUTLO_OPLATY (payments)
 //   mod8A (8A)       → OPLATY                  mod8A     → OPLATY
 //   mod8B (8B)       → OPLATY                  mod8B     → OPLATY
-//   mod9 (9)         → p.wrobel (individual)   mod9      → p.wrobel (individual)
+//   mod9A (9A)       → z.zochowska (individual) mod9A     → z.zochowska (individual)
+//   mod9B (9B)       → p.wrobel (individual)   mod9B     → p.wrobel (individual)
 //
 // Individual emails — organisational @firmadlakazdego.pl mailboxes.
 // Update here if responsibilities change.
 const ROUTE_EMAIL = {
   ubezpieczenia: "k.erbetowska@firmadlakazdego.pl",  // mod4 — both PZK and Tutlo
-  inne: "p.wrobel@firmadlakazdego.pl",                // mod9 + Tutlo mod1+2
+  inne: "p.wrobel@firmadlakazdego.pl",                // mod9B (Domena) + Tutlo mod1+2
+  bramki: "z.zochowska@firmadlakazdego.pl",            // mod9A (Bramki płatności)
 } as const;
 
 export interface ModuleRecipient {
@@ -68,7 +70,8 @@ export async function resolvePzkRecipients(opts: {
   mod6Closed: boolean;   // płatności parent (DB name)
   mod7AClosed: boolean;  // umowy B2B
   mod7BClosed: boolean;  // umowy najem
-  mod8Closed: boolean;   // inne parent (DB name)
+  mod8AClosed: boolean;  // 9A Bramki płatności
+  mod8BClosed: boolean;  // 9B Domena/Hosting
 }): Promise<ModuleRecipient[]> {
   const { panel, clientType } = opts;
 
@@ -161,9 +164,14 @@ export async function resolvePzkRecipients(opts: {
     }
   }
 
-  // Module 9: Inne → p.wrobel@ (individual, NOT whole ADMINISTRACJA)
-  if (!opts.mod8Closed) {
-    recipients.push({ moduleKey: "mod9", moduleLabel: "Inne", emails: [ROUTE_EMAIL.inne] });
+  // Module 9A: Bramki płatności → z.zochowska@ (individual)
+  if (!opts.mod8AClosed) {
+    recipients.push({ moduleKey: "mod9A", moduleLabel: "Bramki płatności", emails: [ROUTE_EMAIL.bramki] });
+  }
+
+  // Module 9B: Domena/Hosting → p.wrobel@ (individual)
+  if (!opts.mod8BClosed) {
+    recipients.push({ moduleKey: "mod9B", moduleLabel: "Domena/Hosting", emails: [ROUTE_EMAIL.inne] });
   }
 
   return recipients;

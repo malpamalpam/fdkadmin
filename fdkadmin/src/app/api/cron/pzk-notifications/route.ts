@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     const allClosed =
       c.mod1Closed && c.mod2Closed && c.mod3Closed && c.mod3BClosed &&
       c.mod4Closed && c.mod5Closed && c.mod6Closed && c.mod7AClosed &&
-      c.mod7BClosed && c.mod8Closed;
+      c.mod7BClosed && c.mod8AClosed && c.mod8BClosed;
     if (allClosed) continue;
 
     const recipients = await resolvePzkRecipients({
@@ -64,7 +64,8 @@ export async function GET(request: NextRequest) {
       mod6Closed: c.mod6Closed,
       mod7AClosed: c.mod7AClosed,
       mod7BClosed: c.mod7BClosed,
-      mod8Closed: c.mod8Closed,
+      mod8AClosed: c.mod8AClosed,
+      mod8BClosed: c.mod8BClosed,
     });
 
     if (!recipients.length) continue;
